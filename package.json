@@ -1,0 +1,15 @@
+{
+  "name": "crm-project",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Nova CRM monorepo — run backend and web from the root",
+  "scripts": {
+    "dev:api": "npm run dev --prefix backend",
+    "dev:web": "npm run dev --prefix web",
+    "dev": "npm run dev:api & npm run dev:web",
+    "install:all": "npm install --prefix backend && npm install --prefix web",
+    "db:setup": "npm run db:generate --prefix backend && npm run db:push --prefix backend && npm run db:seed --prefix backend",
+    "build:all": "npm run build --prefix backend && npm run build --prefix web",
+    "deploy:init": "npm run deploy:init --prefix backend"
+  }
+}

@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MEMBER
+  CONTRIBUTOR
+  VIEWER
+  SUPPORT
+  SALES_TEAM
+  HR_TEAM
+}
+
+enum SupportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TaskStatus {
+  PROCESSED
+  REJECTED
+  ON_HOLD
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(CONTRIBUTOR)
+  isActive     Boolean  @default(true)
+  company      String?
+  department   String?
+  phone        String?
+  profileImage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedTasks Task[]     @relation("AssignedTasks")
+  progressLogs  Progress[] @relation("ProgressUpdates")
+  taskComments  TaskComment[] @relation("TaskComments")
+  taskReminders TaskReminder[] @relation("TaskReminders")
+  supportTickets SupportTicket[] @relation("SupportCreatedBy")
+  supportMessages SupportMessage[] @relation("SupportMessages")
+  assignedSupportTickets SupportTicket[] @relation("SupportAssignedTo")
+
+  @@map("users")
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  director  String?
+  gstNo     String?
+  phone     String?
+  logo      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("companies")
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  customerName String?
+  customerPhone String?
+  customerEmail String?
+  customerCompany String?
+  customerSource String?
+  company     String?
+  assignedTo  String?
+  status      TaskStatus @default(ON_HOLD)
+  priority    Priority   @default(MEDIUM)
+  department  String?
+  remarks     String?
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  assignee User?      @relation("AssignedTasks", fields: [assignedTo], references: [id], onDelete: SetNull)
+  progress Progress[]
+  comments TaskComment[]
+  reminders TaskReminder[]
+
+  @@map("tasks")
+}
+
+model TaskReminder {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String
+  remindAt  DateTime
+  note      String?
+  isDone    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation("TaskReminders", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, remindAt])
+  @@map("task_reminders")
+}
+
+model TaskComment {
+  id          String   @id @default(uuid())
+  taskId      String
+  userId      String
+  comment     String
+  commentDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation("TaskComments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("task_comments")
+}
+
+model Progress {
+  id        String     @id @default(uuid())
+  taskId    String
+  updatedBy String
+  status    TaskStatus
+  remarks   String?
+  updatedAt DateTime   @default(now())
+
+  task    Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  updater User @relation("ProgressUpdates", fields: [updatedBy], references: [id], onDelete: Cascade)
+
+  @@map("progress")
+}
+
+model SupportTicket {
+  id           String        @id @default(uuid())
+  subject      String
+  company      String?
+  status       SupportStatus @default(OPEN)
+  createdById  String
+  assignedToId String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  createdBy User @relation("SupportCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  assignedTo User? @relation("SupportAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages   SupportMessage[]
+
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  senderId  String
+  body      String
+  isInternal Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User @relation("SupportMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("support_messages")
+}

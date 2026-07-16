@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+
+backend/node_modules/
+backend/dist/
+backend/.env
+
+web/node_modules/
+web/dist/
+web/.env
+web/tsconfig.tsbuildinfo
+
+mobile/node_modules/
+mobile/.env
