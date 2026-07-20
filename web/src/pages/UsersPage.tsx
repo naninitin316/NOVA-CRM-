@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Controller, useForm } from 'react-hook-form';
 import { isAxiosError } from 'axios';
-import { Building2, ChevronRight, Search, Trash2, UserPlus, Users as UsersIcon } from 'lucide-react';
+import { Building2, ChevronRight, Pencil, Search, Trash2, UserPlus, Users as UsersIcon } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Modal } from '@/components/ui/Modal';
 import { useCompanies, useCompany, useCreateCompany, useCreateUser, useDeleteUser, useUpdateUser } from '@/hooks/useApi';
@@ -46,6 +46,7 @@ type UserForm = {
   department: string;
   phone: string;
 };
+type EditUserForm = Omit<UserForm, 'password'>;
 
 export function UsersPage() {
   const user = useSelector((s: RootState) => s.auth.user);
@@ -55,6 +56,7 @@ export function UsersPage() {
   const canCreateCompany = isSuperAdmin;
   const canCreateUser = isSuperAdmin || isAdmin || isMember;
   const canManageStatus = isSuperAdmin || isAdmin;
+  const canEditUsers = isSuperAdmin || isAdmin;
   const canDeleteUsers = isSuperAdmin || isAdmin;
 
   const { data: companies } = useCompanies();
@@ -68,8 +70,10 @@ export function UsersPage() {
 
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [message, setMessage] = useState<{ text: string; kind: 'success' | 'error' } | null>(null);
   const [userModalError, setUserModalError] = useState<string | null>(null);
+  const [editUserModalError, setEditUserModalError] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
 
   const companyForm = useForm<CompanyForm>({ defaultValues: { name: '', director: '', gstNo: '', phone: '', logo: '' } });
@@ -78,6 +82,15 @@ export function UsersPage() {
       name: '',
       email: '',
       password: '',
+      role: 'CONTRIBUTOR',
+      department: '',
+      phone: '',
+    },
+  });
+  const editUserForm = useForm<EditUserForm>({
+    defaultValues: {
+      name: '',
+      email: '',
       role: 'CONTRIBUTOR',
       department: '',
       phone: '',
@@ -113,6 +126,13 @@ export function UsersPage() {
       userForm.clearErrors();
     }
   }, [showUserModal, userForm]);
+
+  useEffect(() => {
+    if (!editingUser) {
+      setEditUserModalError(null);
+      editUserForm.clearErrors();
+    }
+  }, [editingUser, editUserForm]);
 
   const selectedCompanyCard = companyDetail || companies?.find((item) => item.name === selectedCompany);
   const members = companyDetail?.users || [];
@@ -172,6 +192,19 @@ export function UsersPage() {
         kind: 'error',
       }),
     });
+  };
+
+  const openEditUser = (member: User) => {
+    setEditUserModalError(null);
+    editUserForm.clearErrors();
+    editUserForm.reset({
+      name: member.name,
+      email: member.email,
+      role: member.role,
+      department: member.department || '',
+      phone: member.phone || '',
+    });
+    setEditingUser(member);
   };
 
   return (
@@ -338,7 +371,7 @@ export function UsersPage() {
                         <th>Department</th>
                         <th>Phone</th>
                         <th>Status</th>
-                        {canDeleteUsers && <th>Actions</th>}
+                        {(canEditUsers || canDeleteUsers) && <th>Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -378,19 +411,34 @@ export function UsersPage() {
                               )}
                             </div>
                           </td>
-                          {canDeleteUsers && (
+                          {(canEditUsers || canDeleteUsers) && (
                             <td>
                               <div className="users-row-actions">
                                 {member.id !== user?.id && member.role !== 'SUPER_ADMIN' ? (
-                                  <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm btn-icon-danger"
-                                    aria-label={`Delete ${member.name}`}
-                                    disabled={deleteUser.isPending}
-                                    onClick={() => handleDeleteUser(member)}
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
+                                  <>
+                                    {canEditUsers && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-ghost btn-sm"
+                                        aria-label={`Edit ${member.name}`}
+                                        disabled={updateUser.isPending}
+                                        onClick={() => openEditUser(member)}
+                                      >
+                                        <Pencil size={16} />
+                                      </button>
+                                    )}
+                                    {canDeleteUsers && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-ghost btn-sm btn-icon-danger"
+                                        aria-label={`Delete ${member.name}`}
+                                        disabled={deleteUser.isPending}
+                                        onClick={() => handleDeleteUser(member)}
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    )}
+                                  </>
                                 ) : (
                                   <span className="task-comments-sub">-</span>
                                 )}
@@ -542,6 +590,155 @@ export function UsersPage() {
               </div>
             )}
           />
+        </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(editingUser)}
+        onClose={() => setEditingUser(null)}
+        title="Edit User"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setEditingUser(null)} disabled={updateUser.isPending}>
+              Cancel
+            </button>
+            <button type="submit" form="edit-user-form" className="btn btn-primary" disabled={!editingUser || updateUser.isPending}>
+              {updateUser.isPending ? 'Saving...' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        <form
+          id="edit-user-form"
+          onSubmit={editUserForm.handleSubmit((data) => {
+            if (!editingUser || updateUser.isPending) return;
+            updateUser.mutate(
+              {
+                id: editingUser.id,
+                data: {
+                  name: data.name,
+                  email: data.email,
+                  role: data.role,
+                  department: data.department || undefined,
+                  phone: data.phone,
+                },
+              },
+              {
+                onSuccess: () => {
+                  setEditUserModalError(null);
+                  setMessage({ text: `${data.name} updated successfully.`, kind: 'success' });
+                  setEditingUser(null);
+                },
+                onError: (err) => {
+                  const apiMessage = getApiErrorMessage(err, 'User could not be updated.');
+                  const normalized = apiMessage.toLowerCase();
+                  setEditUserModalError(null);
+                  editUserForm.clearErrors();
+                  if (normalized.includes('email')) {
+                    editUserForm.setError('email', { type: 'server', message: apiMessage });
+                  } else if (normalized.includes('role') || normalized.includes('permission')) {
+                    editUserForm.setError('role', { type: 'server', message: apiMessage });
+                  } else if (normalized.includes('department')) {
+                    editUserForm.setError('department', { type: 'server', message: apiMessage });
+                  } else {
+                    setEditUserModalError(apiMessage);
+                  }
+                  setMessage({ text: apiMessage, kind: 'error' });
+                },
+              }
+            );
+          })}
+        >
+          {editUserModalError && <p className="form-error" style={{ marginBottom: 12 }}>{editUserModalError}</p>}
+          <Controller
+            control={editUserForm.control}
+            name="name"
+            render={({ field }) => (
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input className="form-input" {...field} />
+                {editUserForm.formState.errors.name?.message && (
+                  <p className="form-error">{editUserForm.formState.errors.name.message}</p>
+                )}
+              </div>
+            )}
+          />
+          <Controller
+            control={editUserForm.control}
+            name="email"
+            render={({ field }) => (
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" {...field} />
+                {editUserForm.formState.errors.email?.message && (
+                  <p className="form-error">{editUserForm.formState.errors.email.message}</p>
+                )}
+              </div>
+            )}
+          />
+          <Controller
+            control={editUserForm.control}
+            name="phone"
+            render={({ field }) => (
+              <div className="form-group">
+                <label className="form-label">Phone</label>
+                <input className="form-input" {...field} />
+                {editUserForm.formState.errors.phone?.message && (
+                  <p className="form-error">{editUserForm.formState.errors.phone.message}</p>
+                )}
+              </div>
+            )}
+          />
+          <div className="form-group">
+            <label className="form-label">Department</label>
+            <Controller
+              control={editUserForm.control}
+              name="department"
+              render={({ field }) => (
+                <div className="chip-row">
+                  {DEPARTMENT_OPTIONS.map((department) => (
+                    <button
+                      key={department}
+                      type="button"
+                      className={`chip ${field.value === department ? 'active' : ''}`}
+                      onClick={() => field.onChange(field.value === department ? '' : department)}
+                    >
+                      {department}
+                    </button>
+                  ))}
+                </div>
+              )}
+            />
+            {editUserForm.formState.errors.department?.message && (
+              <p className="form-error">{editUserForm.formState.errors.department.message}</p>
+            )}
+          </div>
+          <div className="form-group">
+            <label className="form-label">Role</label>
+            <div className="chip-row">
+              <Controller
+                control={editUserForm.control}
+                name="role"
+                render={({ field }) => (
+                  <>
+                    {availableRoles.map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        className={`chip ${field.value === role ? 'active' : ''}`}
+                        onClick={() => field.onChange(role)}
+                      >
+                        {ROLE_LABELS[role]}
+                      </button>
+                    ))}
+                  </>
+                )}
+              />
+            </div>
+            {editUserForm.formState.errors.role?.message && (
+              <p className="form-error">{editUserForm.formState.errors.role.message}</p>
+            )}
+          </div>
         </form>
       </Modal>
 
