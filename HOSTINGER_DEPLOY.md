@@ -38,8 +38,8 @@ sudo -u postgres psql
 ```
 
 ```sql
-CREATE DATABASE novacrm;
 CREATE USER novacrm_user WITH ENCRYPTED PASSWORD 'StrongDatabasePassword123!';
+CREATE DATABASE novacrm OWNER novacrm_user;
 GRANT ALL PRIVILEGES ON DATABASE novacrm TO novacrm_user;
 \q
 ```
@@ -49,7 +49,7 @@ GRANT ALL PRIVILEGES ON DATABASE novacrm TO novacrm_user;
 ```bash
 mkdir -p /var/www
 cd /var/www
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git novacrm
+git clone https://github.com/naninitin316/NOVA-CRM-.git novacrm
 cd /var/www/novacrm
 ```
 
