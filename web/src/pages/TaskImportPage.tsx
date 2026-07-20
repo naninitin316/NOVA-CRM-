@@ -23,10 +23,16 @@ const TEAM_ROLES = ['MEMBER', 'CONTRIBUTOR', 'SALES_TEAM', 'HR_TEAM'] as const;
 
 const normalizeHeader = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 const isValidEmail = (value?: string) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phonePattern = /^\+?[\d\s-]{8,}$/;
+const datePattern = /^[A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4}/;
 
 const readLeadRows = async (file: File) => {
-  const rows = parseCsv(await file.text());
-  return mapLeadRows(rows);
+  const buffer = await file.arrayBuffer();
+  const text = new TextDecoder('utf-8').decode(buffer);
+  const csvLeads = mapLeadRows(parseCsv(text));
+  if (csvLeads.length) return csvLeads;
+  return mapLeadRowsFromExcelExport(extractBinaryStrings(buffer));
 };
 
 const parseCsv = (text: string) => {
@@ -87,6 +93,79 @@ const mapLeadRows = (rows: string[][]): LeadTaskInput[] => {
     if (!isValidEmail(lead.customerEmail)) delete lead.customerEmail;
     return lead;
   }).filter((lead) =>
+    Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany)
+  );
+};
+
+const extractBinaryStrings = (buffer: ArrayBuffer) => {
+  const bytes = new Uint8Array(buffer);
+  const strings: string[] = [];
+  let current = '';
+
+  const pushCurrent = () => {
+    const cleaned = current.replace(/[\u0000-\u001f]+/g, ' ').trim();
+    if (cleaned.length >= 3) strings.push(cleaned);
+    current = '';
+  };
+
+  for (const byte of bytes) {
+    if (byte >= 32 && byte <= 126) {
+      current += String.fromCharCode(byte);
+    } else {
+      pushCurrent();
+    }
+  }
+  pushCurrent();
+
+  return strings
+    .map((value) => value.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+};
+
+const isLikelyName = (value?: string) => {
+  if (!value) return false;
+  if (emailPattern.test(value) || phonePattern.test(value) || datePattern.test(value)) return false;
+  if (/verified|lead|hyderabad|andhra|telangana|individual|project|property|status|mobile|email/i.test(value)) return false;
+  return /^[A-Za-z][A-Za-z .'-]{1,60}$/.test(value);
+};
+
+const isLikelyProject = (value?: string) => {
+  if (!value) return false;
+  if (emailPattern.test(value) || phonePattern.test(value) || datePattern.test(value) || isLikelyName(value)) return false;
+  if (/verified|domestic lead|nri lead|individual|---/i.test(value)) return false;
+  return value.length <= 90;
+};
+
+const mapLeadRowsFromExcelExport = (values: string[]): LeadTaskInput[] => {
+  const leads = new Map<string, LeadTaskInput>();
+
+  values.forEach((value, index) => {
+    if (!emailPattern.test(value)) return;
+
+    const before = values.slice(Math.max(0, index - 4), index).reverse();
+    const after = values.slice(index + 1, Math.min(values.length, index + 14));
+    const phone = after.find((item) => phonePattern.test(item));
+    const name = before.find(isLikelyName);
+    const project = before.find(isLikelyProject) || after.find((item) => isLikelyProject(item) && !phonePattern.test(item));
+    const description = after.find((item) => /interested|looking|viewed your contact|requirement/i.test(item));
+    const messageDate = after.find((item) => datePattern.test(item));
+    const source = after.find((item) => /domestic lead|nri lead|lead/i.test(item));
+    const remarks = [messageDate, after.find((item) => /not interested|different requirement|not looking/i.test(item))]
+      .filter(Boolean)
+      .join(' | ');
+
+    leads.set(value.toLowerCase(), {
+      customerName: name,
+      customerEmail: value,
+      customerPhone: phone,
+      customerCompany: project,
+      customerSource: source || 'MagicBricks',
+      description,
+      remarks,
+    });
+  });
+
+  return Array.from(leads.values()).filter((lead) =>
     Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany)
   );
 };
