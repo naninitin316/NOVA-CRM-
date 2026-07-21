@@ -140,7 +140,10 @@ export class UserService {
       if (!allowedRoles.includes(data.role)) {
         throw new AppError('You cannot assign this role.', 403);
       }
-      if (data.role === Role.SUPPORT) {
+      if (data.role === Role.SUPER_ADMIN) {
+        data.company = 'Platform';
+        data.department = 'Platform';
+      } else if (data.role === Role.SUPPORT) {
         data.company = 'Platform';
         data.department = data.department || 'Support';
       }
@@ -196,7 +199,8 @@ export class UserService {
     const bcrypt = await import('bcryptjs');
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new AppError('Email already registered.', 409);
-    const company = data.role === Role.SUPPORT
+    const isPlatformRole = data.role === Role.SUPER_ADMIN || data.role === Role.SUPPORT;
+    const company = isPlatformRole
       ? 'Platform'
       : requesterRole === Role.SUPER_ADMIN
         ? data.company
@@ -228,7 +232,11 @@ export class UserService {
         data: {
           ...data,
           company,
-          department: data.role === Role.SUPPORT ? (data.department || 'Support') : data.department,
+          department: data.role === Role.SUPER_ADMIN
+            ? 'Platform'
+            : data.role === Role.SUPPORT
+              ? (data.department || 'Support')
+              : data.department,
           password: hashedPassword,
         },
         select: {

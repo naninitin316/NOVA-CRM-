@@ -167,6 +167,9 @@ export function UsersPage() {
     return groups;
   }, [filteredMembers]);
   const activeCompany = isSuperAdmin ? selectedCompany : user?.company || '';
+  const selectedCreateRole = userForm.watch('role');
+  const isCreatingPlatformUser = isSuperAdmin && (selectedCreateRole === 'SUPER_ADMIN' || selectedCreateRole === 'SUPPORT');
+  const createUserCompany = isCreatingPlatformUser ? 'Platform' : activeCompany;
 
   const getApiErrorMessage = (err: unknown, fallback: string) => (
     isAxiosError(err)
@@ -751,7 +754,7 @@ export function UsersPage() {
             <button type="button" className="btn btn-ghost" onClick={() => setShowUserModal(false)} disabled={createUser.isPending}>
               Cancel
             </button>
-            <button type="submit" form="user-form" className="btn btn-primary" disabled={!activeCompany || createUser.isPending}>
+            <button type="submit" form="user-form" className="btn btn-primary" disabled={!createUserCompany || createUser.isPending}>
               {createUser.isPending ? 'Creating...' : 'Create User'}
             </button>
           </>
@@ -767,8 +770,8 @@ export function UsersPage() {
                 email: data.email,
                 password: data.password,
                 role: data.role,
-                company: activeCompany,
-                department: data.department || undefined,
+                company: createUserCompany,
+                department: selectedCreateRole === 'SUPER_ADMIN' ? undefined : data.department || undefined,
                 phone: data.phone,
               },
               {
@@ -783,6 +786,7 @@ export function UsersPage() {
                       : 'User created successfully. Welcome email sent.',
                     kind: 'success',
                   });
+                  if (isCreatingPlatformUser) setSelectedCompany('Platform');
                   setShowUserModal(false);
                   userForm.reset({
                     name: '',
@@ -820,8 +824,8 @@ export function UsersPage() {
           })}
         >
           <div className="company-page-badge company-page-badge--modal">
-            <span>Company</span>
-            <strong>{activeCompany || 'Select a company'}</strong>
+            <span>{isCreatingPlatformUser ? 'Account scope' : 'Company'}</span>
+            <strong>{createUserCompany || 'Select a company'}</strong>
           </div>
           {userModalError && <p className="form-error" style={{ marginBottom: 12 }}>{userModalError}</p>}
           <Controller
@@ -876,30 +880,32 @@ export function UsersPage() {
               </div>
             )}
           />
-          <div className="form-group">
-            <label className="form-label">Department</label>
-            <Controller
-              control={userForm.control}
-              name="department"
-              render={({ field }) => (
-                <div className="chip-row">
-                  {DEPARTMENT_OPTIONS.map((department) => (
-                    <button
-                      key={department}
-                      type="button"
-                      className={`chip ${field.value === department ? 'active' : ''}`}
-                      onClick={() => field.onChange(field.value === department ? '' : department)}
-                    >
-                      {department}
-                    </button>
-                  ))}
-                </div>
+          {selectedCreateRole !== 'SUPER_ADMIN' && (
+            <div className="form-group">
+              <label className="form-label">Department</label>
+              <Controller
+                control={userForm.control}
+                name="department"
+                render={({ field }) => (
+                  <div className="chip-row">
+                    {DEPARTMENT_OPTIONS.map((department) => (
+                      <button
+                        key={department}
+                        type="button"
+                        className={`chip ${field.value === department ? 'active' : ''}`}
+                        onClick={() => field.onChange(field.value === department ? '' : department)}
+                      >
+                        {department}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              />
+              {userForm.formState.errors.department?.message && (
+                <p className="form-error">{userForm.formState.errors.department.message}</p>
               )}
-            />
-            {userForm.formState.errors.department?.message && (
-              <p className="form-error">{userForm.formState.errors.department.message}</p>
-            )}
-          </div>
+            </div>
+          )}
           <div className="form-group">
             <label className="form-label">Role</label>
             <div className="chip-row">
