@@ -11,13 +11,13 @@ type Department = 'Sales' | 'HR' | 'IT' | 'Administration' | 'Finance' | 'Engine
 
 const FIELD_ALIASES: Record<keyof LeadTaskInput, string[]> = {
   customerName: ['name', 'customer name', 'customer', 'lead name', 'client name'],
-  customerPhone: ['phone', 'mobile', 'contact', 'contact number', 'phone number', 'mobile number'],
-  customerEmail: ['email', 'email address'],
-  customerCompany: ['company', 'organization', 'business', 'project name', 'property', 'property name'],
-  customerSource: ['source', 'lead source', 'type of lead', 'contacted by'],
-  description: ['description', 'notes', 'details', 'message details', 'brief desc.', 'brief desc', 'subject', 'interested in'],
-  remarks: ['comment', 'remarks', 'remark', 'status', 'any other details', 'plan to buy', 'budget'],
-  assignedTo: ['assignedto', 'assigned to', 'assignee id'],
+  customerPhone: ['phone', 'mobile', 'contact', 'contact number', 'phone number', 'mobile number', 'contactno', 'contact no'],
+  customerEmail: ['email', 'email address', 'emailid', 'email id'],
+  customerCompany: ['company', 'organization', 'business', 'project name', 'project', 'property', 'property name', 'interestedin', 'interested in'],
+  customerSource: ['source', 'lead source', 'type of lead', 'contacted by', 'responsetype', 'response type', 'prodtype', 'prod type'],
+  description: ['description', 'notes', 'details', 'message details', 'brief desc.', 'brief desc', 'subject', 'query', 'questionnaire'],
+  remarks: ['comment', 'remarks', 'remark', 'status', 'any other details', 'plan to buy', 'budget', 'followupcurrentstatus', 'followup current status', 'receiveddate', 'received date', 'calledon', 'called on', 'leadscore', 'lead score'],
+  assignedTo: ['assignee id'],
 };
 const TEAM_ROLES = ['MEMBER', 'CONTRIBUTOR', 'SALES_TEAM', 'HR_TEAM'] as const;
 
@@ -79,7 +79,12 @@ const parseCsv = (text: string) => {
 };
 
 const mapLeadRows = (rows: string[][]): LeadTaskInput[] => {
-  const [headers = [], ...body] = rows;
+  const usableRows = rows.filter((row) => row.some((cell) => cell.trim()));
+  const headerIndex = usableRows.findIndex((row) => row.some((cell) =>
+    ['name', 'email', 'emailid', 'mobile', 'contactno', 'phone', 'project name', 'interestedin'].includes(normalizeHeader(cell))
+  ));
+  const headers = headerIndex >= 0 ? usableRows[headerIndex] : usableRows[0] || [];
+  const body = headerIndex >= 0 ? usableRows.slice(headerIndex + 1) : usableRows.slice(1);
   const normalized = headers.map(normalizeHeader);
 
   return body.map((row) => {

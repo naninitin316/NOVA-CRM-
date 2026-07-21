@@ -135,7 +135,7 @@ export class UserService {
         requesterRole === Role.SUPER_ADMIN
           ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER, Role.SUPPORT]
           : requesterRole === Role.ADMIN
-            ? [Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER]
+            ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER]
             : [];
       if (!allowedRoles.includes(data.role)) {
         throw new AppError('You cannot assign this role.', 403);
@@ -209,7 +209,7 @@ export class UserService {
       requesterRole === Role.SUPER_ADMIN
         ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER, Role.SUPPORT]
         : requesterRole === Role.ADMIN
-          ? [Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER]
+          ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER]
           : requesterRole === Role.MEMBER
             ? [Role.CONTRIBUTOR]
             : [];
