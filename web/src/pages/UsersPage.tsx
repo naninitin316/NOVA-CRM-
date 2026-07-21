@@ -182,11 +182,14 @@ export function UsersPage() {
       setMessage({ text: 'You cannot delete your own account.', kind: 'error' });
       return;
     }
-    if (member.role === 'SUPER_ADMIN') {
-      setMessage({ text: 'Super admin accounts cannot be deleted here.', kind: 'error' });
+    if (member.role === 'SUPER_ADMIN' && !isSuperAdmin) {
+      setMessage({ text: 'Only a super admin can delete another super admin.', kind: 'error' });
       return;
     }
-    if (!window.confirm(`Delete ${member.name}? This cannot be undone.`)) return;
+    const warning = member.role === 'SUPER_ADMIN'
+      ? `Delete Super Admin ${member.name}? This permanently removes their platform access.`
+      : `Delete ${member.name}? This cannot be undone.`;
+    if (!window.confirm(warning)) return;
 
     deleteUser.mutate(member.id, {
       onSuccess: () => setMessage({ text: `${member.name} deleted successfully.`, kind: 'success' }),
@@ -417,7 +420,7 @@ export function UsersPage() {
                           {(canEditUsers || canDeleteUsers) && (
                             <td>
                               <div className="users-row-actions">
-                                {member.id !== user?.id && member.role !== 'SUPER_ADMIN' ? (
+                                {member.id !== user?.id && (member.role !== 'SUPER_ADMIN' || isSuperAdmin) ? (
                                   <>
                                     {canEditUsers && (
                                       <button

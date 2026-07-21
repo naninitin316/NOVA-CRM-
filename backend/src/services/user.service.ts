@@ -116,6 +116,9 @@ export class UserService {
   }, requesterRole?: Role, requesterCompany?: string | null) {
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) throw new AppError('User not found.', 404);
+    if (existing.role === Role.SUPER_ADMIN && requesterRole !== Role.SUPER_ADMIN) {
+      throw new AppError('Only a super admin can edit another super admin.', 403);
+    }
     if (requesterRole !== Role.SUPER_ADMIN && requesterCompany && existing.company !== requesterCompany) {
       throw new AppError('Access denied.', 403);
     }
@@ -178,6 +181,12 @@ export class UserService {
     }
     if (existing.role === Role.SUPER_ADMIN && requesterRole !== Role.SUPER_ADMIN) {
       throw new AppError('You cannot delete this user.', 403);
+    }
+    if (existing.role === Role.SUPER_ADMIN) {
+      const superAdminCount = await prisma.user.count({ where: { role: Role.SUPER_ADMIN } });
+      if (superAdminCount <= 1) {
+        throw new AppError('The final super admin account cannot be deleted.', 400);
+      }
     }
     if (requesterRole !== Role.SUPER_ADMIN && requesterCompany && existing.company !== requesterCompany) {
       throw new AppError('Access denied.', 403);
