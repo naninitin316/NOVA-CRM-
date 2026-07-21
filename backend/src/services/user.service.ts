@@ -133,7 +133,7 @@ export class UserService {
     if (data.role) {
       const allowedRoles: Role[] =
         requesterRole === Role.SUPER_ADMIN
-          ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER, Role.SUPPORT]
+          ? [Role.SUPER_ADMIN, Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER, Role.SUPPORT]
           : requesterRole === Role.ADMIN
             ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER]
             : [];
@@ -207,7 +207,7 @@ export class UserService {
 
     const allowedRoles: Role[] =
       requesterRole === Role.SUPER_ADMIN
-        ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER, Role.SUPPORT]
+        ? [Role.SUPER_ADMIN, Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER, Role.SUPPORT]
         : requesterRole === Role.ADMIN
           ? [Role.ADMIN, Role.MEMBER, Role.CONTRIBUTOR, Role.VIEWER]
           : requesterRole === Role.MEMBER

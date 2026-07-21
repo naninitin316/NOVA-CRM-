@@ -98,7 +98,7 @@ export function UsersPage() {
   });
 
   const availableRoles: Role[] = useMemo(() => {
-    if (isSuperAdmin) return ['ADMIN', 'MEMBER', 'CONTRIBUTOR', 'VIEWER', 'SUPPORT'];
+    if (isSuperAdmin) return ['SUPER_ADMIN', 'ADMIN', 'MEMBER', 'CONTRIBUTOR', 'VIEWER', 'SUPPORT'];
     if (isAdmin) return ['ADMIN', 'MEMBER', 'CONTRIBUTOR', 'VIEWER'];
     if (isMember) return ['CONTRIBUTOR'];
     return [];

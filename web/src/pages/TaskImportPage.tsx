@@ -253,7 +253,8 @@ export function TaskImportPage() {
     }, {
       onSuccess: (response) => {
         const created = response.data.data?.created || leads.length;
-        setSuccess(`${created} task${created === 1 ? '' : 's'} assigned successfully to ${department}.`);
+        const skipped = response.data.data?.skipped || 0;
+        setSuccess(`${created} task${created === 1 ? '' : 's'} assigned successfully to ${department}${skipped ? `, ${skipped} duplicate ${skipped === 1 ? 'lead was' : 'leads were'} skipped` : ''}.`);
       },
       onError: (err) => {
         const message = isAxiosError(err)

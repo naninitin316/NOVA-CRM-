@@ -22,7 +22,7 @@ export const taskApi = {
   getTask: (id: string) => api.get<ApiResponse<Task>>(`/tasks/${id}`),
   createTask: (data: Partial<Task>) => api.post<ApiResponse<Task>>('/tasks', data),
   createLeadTasks: (data: BulkLeadTaskRequest) =>
-    api.post<ApiResponse<{ created: number; tasks: Task[] }>>('/tasks/bulk-leads', data),
+    api.post<ApiResponse<{ created: number; skipped?: number; tasks: Task[] }>>('/tasks/bulk-leads', data),
   updateTask: (id: string, data: Partial<Task>) =>
     api.put<ApiResponse<Task>>(`/tasks/${id}`, data),
   deleteTask: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/tasks/${id}`),

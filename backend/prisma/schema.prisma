@@ -86,6 +86,9 @@ model Task {
   customerEmail String?
   customerCompany String?
   customerSource String?
+  leadEmailKey String? @unique
+  leadPhoneKey String? @unique
+  leadFallbackKey String? @unique
   company     String?
   assignedTo  String?
   status      TaskStatus @default(ON_HOLD)

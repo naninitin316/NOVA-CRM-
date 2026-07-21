@@ -22,6 +22,89 @@ export class TaskService {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : undefined;
   }
 
+  private normalizePhone(phone?: string | null) {
+    return phone?.replace(/\D/g, '') || undefined;
+  }
+
+  private defaultDueDate() {
+    return new Date(Date.now() + 30 * 60 * 1000);
+  }
+
+  private normalizeText(value?: string | null) {
+    return value?.trim().toLowerCase().replace(/\s+/g, ' ') || undefined;
+  }
+
+  private leadKeys(lead: {
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+    customerName?: string | null;
+    customerCompany?: string | null;
+    description?: string | null;
+  }) {
+    const keys: string[] = [];
+    const email = this.cleanEmail(lead.customerEmail || undefined)?.toLowerCase();
+    const phone = this.normalizePhone(lead.customerPhone);
+    const name = this.normalizeText(lead.customerName);
+    const company = this.normalizeText(lead.customerCompany);
+    const description = this.normalizeText(lead.description);
+
+    if (email) keys.push(`email:${email}`);
+    if (phone) keys.push(`phone:${phone}`);
+    if (name && company) keys.push(`name-company:${name}:${company}`);
+    if (name && description) keys.push(`name-description:${name}:${description}`);
+    return keys;
+  }
+
+  private leadIdentity(lead: {
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+    customerName?: string | null;
+    customerCompany?: string | null;
+    description?: string | null;
+  }) {
+    const email = this.cleanEmail(lead.customerEmail || undefined)?.toLowerCase();
+    const phone = this.normalizePhone(lead.customerPhone);
+    const name = this.normalizeText(lead.customerName);
+    const company = this.normalizeText(lead.customerCompany);
+    const description = this.normalizeText(lead.description);
+
+    return {
+      leadEmailKey: email || undefined,
+      leadPhoneKey: phone || undefined,
+      leadFallbackKey: !email && !phone
+        ? (name && company ? `name-company:${name}:${company}` : name && description ? `name-description:${name}:${description}` : undefined)
+        : undefined,
+    };
+  }
+
+  private hasDuplicateLead(
+    lead: { customerEmail?: string | null; customerPhone?: string | null; customerName?: string | null; customerCompany?: string | null; description?: string | null },
+    existingKeys: Set<string>
+  ) {
+    const keys = this.leadKeys(lead);
+    return keys.length > 0 && keys.some((key) => existingKeys.has(key));
+  }
+
+  private async ensureUniqueLeadTask(lead: {
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+    customerName?: string | null;
+    customerCompany?: string | null;
+    description?: string | null;
+  }) {
+    const keys = this.leadKeys(lead);
+    if (!keys.length) return;
+
+    const existingTasks = await prisma.task.findMany({
+      select: { customerEmail: true, customerPhone: true, customerName: true, customerCompany: true, description: true },
+    });
+    const existingKeys = new Set(existingTasks.flatMap((task) => this.leadKeys(task)));
+
+    if (keys.some((key) => existingKeys.has(key))) {
+      throw new AppError('A task for this lead already exists.', 409);
+    }
+  }
+
   private async ensureActiveAssignee(assignedTo?: string | null) {
     if (!assignedTo) return;
     const assignee = await prisma.user.findUnique({
@@ -213,8 +296,25 @@ export class TaskService {
 
   async createTask(data: Prisma.TaskUncheckedCreateInput) {
     await this.ensureActiveAssignee(typeof data.assignedTo === 'string' ? data.assignedTo : undefined);
+    await this.ensureUniqueLeadTask({
+      customerEmail: typeof data.customerEmail === 'string' ? data.customerEmail : undefined,
+      customerPhone: typeof data.customerPhone === 'string' ? data.customerPhone : undefined,
+      customerName: typeof data.customerName === 'string' ? data.customerName : undefined,
+      customerCompany: typeof data.customerCompany === 'string' ? data.customerCompany : undefined,
+      description: typeof data.description === 'string' ? data.description : undefined,
+    });
     return prisma.task.create({
-      data,
+      data: {
+        ...data,
+        ...this.leadIdentity({
+          customerEmail: typeof data.customerEmail === 'string' ? data.customerEmail : undefined,
+          customerPhone: typeof data.customerPhone === 'string' ? data.customerPhone : undefined,
+          customerName: typeof data.customerName === 'string' ? data.customerName : undefined,
+          customerCompany: typeof data.customerCompany === 'string' ? data.customerCompany : undefined,
+          description: typeof data.description === 'string' ? data.description : undefined,
+        }),
+        dueDate: data.dueDate || this.defaultDueDate(),
+      },
       include: {
         assignee: { select: { id: true, name: true, email: true } },
       },
@@ -256,6 +356,21 @@ export class TaskService {
 
     if (!cleanedLeads.length) throw new AppError('No usable lead rows found.', 400);
 
+    const existingTasks = await prisma.task.findMany({
+      select: { customerEmail: true, customerPhone: true, customerName: true, customerCompany: true, description: true },
+    });
+    const existingKeys = new Set(existingTasks.flatMap((task) => this.leadKeys(task)));
+    const importKeys = new Set<string>();
+    const uniqueLeads = cleanedLeads.filter((lead) => {
+      const keys = this.leadKeys(lead);
+      if (!keys.length) return true;
+      if (keys.some((key) => existingKeys.has(key) || importKeys.has(key))) return false;
+      keys.forEach((key) => importKeys.add(key));
+      return true;
+    });
+
+    if (!uniqueLeads.length) throw new AppError('All uploaded lead rows already exist as tasks.', 409);
+
     const requestedAssigneeIds = Array.from(new Set(data.assigneeIds || []));
     let uniqueAssigneeIds = requestedAssigneeIds;
 
@@ -295,7 +410,7 @@ export class TaskService {
     const userMap = new Map(users.map((user) => [user.id, user]));
 
     const tasks = await prisma.$transaction(
-      cleanedLeads.map((lead, index) => {
+      uniqueLeads.map((lead, index) => {
         const assignedTo = uniqueAssigneeIds[index % uniqueAssigneeIds.length];
         const assignee = userMap.get(assignedTo);
         const customerLabel = lead.customerName || lead.customerCompany || lead.customerPhone || lead.customerEmail || `Lead ${index + 1}`;
@@ -309,11 +424,12 @@ export class TaskService {
             customerEmail: lead.customerEmail,
             customerCompany: lead.customerCompany,
             customerSource: lead.customerSource,
+            ...this.leadIdentity(lead),
             company: data.company,
             remarks: lead.remarks,
             status: TaskStatus.ON_HOLD,
             priority: data.priority || Priority.MEDIUM,
-            dueDate: data.dueDate,
+            dueDate: data.dueDate || this.defaultDueDate(),
             department: assignee?.department || data.department,
             assignedTo,
           },
@@ -324,7 +440,7 @@ export class TaskService {
       })
     );
 
-    return { created: tasks.length, tasks };
+    return { created: tasks.length, skipped: cleanedLeads.length - uniqueLeads.length, tasks };
   }
 
   async updateTask(id: string, data: Prisma.TaskUncheckedUpdateInput, updatedBy: string, role?: Role, userCompany?: string | null, userEmail?: string) {
