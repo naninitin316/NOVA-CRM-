@@ -145,7 +145,7 @@ export const idParamValidation = [
 
 export const taskQueryValidation = [
   query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 1000 }),
+  query('limit').optional().isInt({ min: 1, max: 10000 }),
   query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'dueDate', 'status', 'priority', 'title']),
   query('sortOrder').optional().isIn(['asc', 'desc']),
   query('status').optional().isIn(['PROCESSED', 'REJECTED', 'ON_HOLD']),
@@ -153,4 +153,6 @@ export const taskQueryValidation = [
   query('company').optional().isString(),
   query('dateFrom').optional().isISO8601(),
   query('dateTo').optional().isISO8601(),
+  query('updatedFrom').optional().isISO8601(),
+  query('updatedTo').optional().isISO8601(),
 ];

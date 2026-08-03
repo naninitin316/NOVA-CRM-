@@ -43,6 +43,8 @@ export interface TaskFilters extends PaginationParams {
   company?: string;
   dateFrom?: string;
   dateTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
 }
 
 export interface SupportTicketSummary {

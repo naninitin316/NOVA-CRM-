@@ -31,13 +31,14 @@ export const useLogout = () => {
   };
 };
 
-export const useTasks = (filters?: TaskFilters) =>
+export const useTasks = (filters?: TaskFilters, enabled = true) =>
   useQuery({
     queryKey: ['tasks', filters],
     queryFn: async () => {
       const { data } = await taskApi.getTasks(filters);
       return data.data!;
     },
+    enabled,
   });
 
 export const useTask = (id: string) =>

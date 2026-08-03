@@ -101,6 +101,15 @@ export interface Task {
   updatedAt?: string;
   assignee?: Pick<User, 'id' | 'name' | 'email' | 'department'>;
   comments?: TaskComment[];
+  progress?: Array<{
+    id: string;
+    taskId: string;
+    updatedBy: string;
+    status: TaskStatus;
+    remarks?: string | null;
+    updatedAt: string;
+    updater?: Pick<User, 'id' | 'name'>;
+  }>;
 }
 
 export interface TaskReminder {
@@ -207,6 +216,8 @@ export interface TaskFilters {
   company?: string;
   dateFrom?: string;
   dateTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

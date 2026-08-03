@@ -21,6 +21,8 @@ export const getTasks = asyncHandler(async (req: AuthRequest, res: Response) => 
     company: req.query.company as string,
     dateFrom: req.query.dateFrom as string,
     dateTo: req.query.dateTo as string,
+    updatedFrom: req.query.updatedFrom as string,
+    updatedTo: req.query.updatedTo as string,
   };
 
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });

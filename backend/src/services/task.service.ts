@@ -209,6 +209,12 @@ export class TaskService {
       if (filters.dateTo) createdAt.lte = this.toEndOfDay(filters.dateTo);
       where.createdAt = createdAt;
     }
+    if (filters.updatedFrom || filters.updatedTo) {
+      const updatedAt: Prisma.DateTimeFilter = {};
+      if (filters.updatedFrom) updatedAt.gte = this.toStartOfDay(filters.updatedFrom);
+      if (filters.updatedTo) updatedAt.lte = this.toEndOfDay(filters.updatedTo);
+      where.updatedAt = updatedAt;
+    }
     return where;
   }
 
@@ -237,6 +243,11 @@ export class TaskService {
         include: {
           assignee: {
             select: { id: true, name: true, email: true, department: true },
+          },
+          progress: {
+            orderBy: { updatedAt: 'desc' },
+            take: 1,
+            include: { updater: { select: { id: true, name: true } } },
           },
         },
       }),
