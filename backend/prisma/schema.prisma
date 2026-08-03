@@ -86,9 +86,9 @@ model Task {
   customerEmail String?
   customerCompany String?
   customerSource String?
-  leadEmailKey String? @unique
-  leadPhoneKey String? @unique
-  leadFallbackKey String? @unique
+  leadEmailKey String?
+  leadPhoneKey String?
+  leadFallbackKey String?
   company     String?
   assignedTo  String?
   status      TaskStatus @default(ON_HOLD)
@@ -104,6 +104,9 @@ model Task {
   comments TaskComment[]
   reminders TaskReminder[]
 
+  @@unique([company, leadEmailKey])
+  @@unique([company, leadPhoneKey])
+  @@unique([company, leadFallbackKey])
   @@map("tasks")
 }
 

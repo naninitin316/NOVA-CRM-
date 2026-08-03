@@ -59,25 +59,32 @@ export class TaskService {
     return keys;
   }
 
+  private scopeLeadKey(key?: string, company?: string | null) {
+    const normalizedCompany = this.normalizeText(company);
+    if (!key) return undefined;
+    return normalizedCompany ? `company:${normalizedCompany}:${key}` : key;
+  }
+
   private leadIdentity(lead: {
     customerEmail?: string | null;
     customerPhone?: string | null;
     customerName?: string | null;
     customerCompany?: string | null;
     description?: string | null;
-  }) {
+  }, company?: string | null) {
     const email = this.cleanEmail(lead.customerEmail || undefined)?.toLowerCase();
     const phone = this.normalizePhone(lead.customerPhone);
     const name = this.normalizeText(lead.customerName);
-    const company = this.normalizeText(lead.customerCompany);
+    const customerCompany = this.normalizeText(lead.customerCompany);
     const description = this.normalizeText(lead.description);
+    const fallback = !email && !phone
+      ? (name && customerCompany ? `name-company:${name}:${customerCompany}` : name && description ? `name-description:${name}:${description}` : undefined)
+      : undefined;
 
     return {
-      leadEmailKey: email || undefined,
-      leadPhoneKey: phone || undefined,
-      leadFallbackKey: !email && !phone
-        ? (name && company ? `name-company:${name}:${company}` : name && description ? `name-description:${name}:${description}` : undefined)
-        : undefined,
+      leadEmailKey: this.scopeLeadKey(email ? `email:${email}` : undefined, company),
+      leadPhoneKey: this.scopeLeadKey(phone ? `phone:${phone}` : undefined, company),
+      leadFallbackKey: this.scopeLeadKey(fallback, company),
     };
   }
 
@@ -87,6 +94,18 @@ export class TaskService {
   ) {
     const keys = this.leadKeys(lead);
     return keys.length > 0 && keys.some((key) => existingKeys.has(key));
+  }
+
+  private handleLeadUniqueError(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      Array.isArray(error.meta?.target) &&
+      error.meta.target.some((field) => ['leadEmailKey', 'leadPhoneKey', 'leadFallbackKey'].includes(String(field)))
+    ) {
+      throw new AppError('A task for this lead already exists.', 409);
+    }
+    throw error;
   }
 
   private async ensureUniqueLeadTask(lead: {
@@ -296,22 +315,26 @@ export class TaskService {
       customerCompany: typeof data.customerCompany === 'string' ? data.customerCompany : undefined,
       description: typeof data.description === 'string' ? data.description : undefined,
     }, typeof data.company === 'string' ? data.company : undefined);
-    return prisma.task.create({
-      data: {
-        ...data,
-        ...this.leadIdentity({
-          customerEmail: typeof data.customerEmail === 'string' ? data.customerEmail : undefined,
-          customerPhone: typeof data.customerPhone === 'string' ? data.customerPhone : undefined,
-          customerName: typeof data.customerName === 'string' ? data.customerName : undefined,
-          customerCompany: typeof data.customerCompany === 'string' ? data.customerCompany : undefined,
-          description: typeof data.description === 'string' ? data.description : undefined,
-        }),
-        dueDate: data.dueDate || this.defaultDueDate(),
-      },
-      include: {
-        assignee: { select: { id: true, name: true, email: true } },
-      },
-    });
+    try {
+      return await prisma.task.create({
+        data: {
+          ...data,
+          ...this.leadIdentity({
+            customerEmail: typeof data.customerEmail === 'string' ? data.customerEmail : undefined,
+            customerPhone: typeof data.customerPhone === 'string' ? data.customerPhone : undefined,
+            customerName: typeof data.customerName === 'string' ? data.customerName : undefined,
+            customerCompany: typeof data.customerCompany === 'string' ? data.customerCompany : undefined,
+            description: typeof data.description === 'string' ? data.description : undefined,
+          }, typeof data.company === 'string' ? data.company : undefined),
+          dueDate: data.dueDate || this.defaultDueDate(),
+        },
+        include: {
+          assignee: { select: { id: true, name: true, email: true } },
+        },
+      });
+    } catch (error) {
+      this.handleLeadUniqueError(error);
+    }
   }
 
   async createLeadTasks(data: {
@@ -403,36 +426,41 @@ export class TaskService {
 
     const userMap = new Map(users.map((user) => [user.id, user]));
 
-    const tasks = await prisma.$transaction(
-      uniqueLeads.map((lead, index) => {
-        const assignedTo = uniqueAssigneeIds[index % uniqueAssigneeIds.length];
-        const assignee = userMap.get(assignedTo);
-        const customerLabel = lead.customerName || lead.customerCompany || lead.customerPhone || lead.customerEmail || `Lead ${index + 1}`;
+    let tasks;
+    try {
+      tasks = await prisma.$transaction(
+        uniqueLeads.map((lead, index) => {
+          const assignedTo = uniqueAssigneeIds[index % uniqueAssigneeIds.length];
+          const assignee = userMap.get(assignedTo);
+          const customerLabel = lead.customerName || lead.customerCompany || lead.customerPhone || lead.customerEmail || `Lead ${index + 1}`;
 
-        return prisma.task.create({
-          data: {
-            title: `Follow up with ${customerLabel}`,
-            description: lead.description || 'Contact this lead and update the task status.',
-            customerName: lead.customerName,
-            customerPhone: lead.customerPhone,
-            customerEmail: lead.customerEmail,
-            customerCompany: lead.customerCompany,
-            customerSource: lead.customerSource,
-            ...this.leadIdentity(lead),
-            company: data.company,
-            remarks: lead.remarks,
-            status: TaskStatus.ON_HOLD,
-            priority: data.priority || Priority.MEDIUM,
-            dueDate: data.dueDate || this.defaultDueDate(),
-            department: assignee?.department || data.department,
-            assignedTo,
-          },
-          include: {
-            assignee: { select: { id: true, name: true, email: true, department: true } },
-          },
-        });
-      })
-    );
+          return prisma.task.create({
+            data: {
+              title: `Follow up with ${customerLabel}`,
+              description: lead.description || 'Contact this lead and update the task status.',
+              customerName: lead.customerName,
+              customerPhone: lead.customerPhone,
+              customerEmail: lead.customerEmail,
+              customerCompany: lead.customerCompany,
+              customerSource: lead.customerSource,
+              ...this.leadIdentity(lead, data.company),
+              company: data.company,
+              remarks: lead.remarks,
+              status: TaskStatus.ON_HOLD,
+              priority: data.priority || Priority.MEDIUM,
+              dueDate: data.dueDate || this.defaultDueDate(),
+              department: assignee?.department || data.department,
+              assignedTo,
+            },
+            include: {
+              assignee: { select: { id: true, name: true, email: true, department: true } },
+            },
+          });
+        })
+      );
+    } catch (error) {
+      this.handleLeadUniqueError(error);
+    }
 
     return { created: tasks.length, skipped: cleanedLeads.length - uniqueLeads.length, tasks };
   }
