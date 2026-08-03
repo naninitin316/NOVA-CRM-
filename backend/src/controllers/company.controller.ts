@@ -13,7 +13,7 @@ export const getCompanies = asyncHandler(async (req: AuthRequest, res: Response)
 
 export const getCompanyByName = asyncHandler(async (req: AuthRequest, res: Response) => {
   const currentUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  const company = await companyService.getCompanyByName(decodeURIComponent(getParam(req, 'name')), req.user!.role, currentUser?.company);
+  const company = await companyService.getCompanyByName(decodeURIComponent(getParam(req, 'name')), req.user!.role, req.user!.id, currentUser?.company);
   res.json({ success: true, data: company });
 });
 

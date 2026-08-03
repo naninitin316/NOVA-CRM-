@@ -44,7 +44,7 @@ export function Sidebar() {
   const showUsers = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER';
   const showReports = user?.role === 'CONTRIBUTOR' || user?.role === 'SALES_TEAM' || user?.role === 'HR_TEAM' || user?.role === 'VIEWER';
   const showSupport = user?.role === 'SUPPORT' || user?.role === 'SUPER_ADMIN';
-  const showOnlineLeads = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER';
+  const showOnlineLeads = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const isViewer = user?.role === 'VIEWER';
   const brandLabel = getBrandLabel(user);
   const companyName = user?.role === 'SUPER_ADMIN' ? undefined : user?.company;

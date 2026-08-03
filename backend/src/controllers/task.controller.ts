@@ -129,10 +129,10 @@ export const updateTask = asyncHandler(async (req: AuthRequest, res: Response) =
   }
 
   let task;
-  if (req.user!.role === Role.CONTRIBUTOR || req.user!.role === Role.SALES_TEAM || req.user!.role === Role.HR_TEAM) {
+  if (req.user!.role === Role.MEMBER || req.user!.role === Role.CONTRIBUTOR || req.user!.role === Role.SALES_TEAM || req.user!.role === Role.HR_TEAM) {
     const allowed: Record<string, unknown> = {};
     if (status !== undefined) allowed.status = status;
-    if (priority !== undefined && req.user!.role === Role.CONTRIBUTOR) allowed.priority = priority;
+    if (priority !== undefined && (req.user!.role === Role.MEMBER || req.user!.role === Role.CONTRIBUTOR)) allowed.priority = priority;
     if (remarks !== undefined) allowed.remarks = remarks;
     task = await taskService.updateTask(id, allowed, req.user!.id, req.user!.role, currentUser?.company, req.user!.email);
   } else if (req.user!.role === Role.VIEWER) {
@@ -174,6 +174,11 @@ export const addTaskComment = asyncHandler(async (req: AuthRequest, res: Respons
 });
 
 export const createLeadTasks = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const bulkAssignableRoles: Role[] = [Role.SUPER_ADMIN, Role.ADMIN, Role.MEMBER];
+  if (!bulkAssignableRoles.includes(req.user!.role)) {
+    throw new AppError('Only admins and members can bulk assign lead tasks.', 403);
+  }
+
   const { assignmentMode, department, assigneeIds, priority, dueDate, leads } = req.body;
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   const result = await taskService.createLeadTasks({

@@ -36,6 +36,7 @@ export function TaskCreatePage() {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.auth.user);
   const isContributor = user?.role === 'CONTRIBUTOR';
+  const canImportTasks = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER';
   const { data: users } = useUsers();
   const createTask = useCreateTask();
   const [error, setError] = useState('');
@@ -125,7 +126,7 @@ export function TaskCreatePage() {
               <h2 className="task-detail-title">{title.trim() || 'Untitled task'}</h2>
             </div>
             <div className="task-edit-actions">
-              {!isContributor && (
+              {canImportTasks && (
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate('/tasks/import')}>
                   <FileUp size={14} /> Import CSV
                 </button>

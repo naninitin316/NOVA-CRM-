@@ -15,7 +15,7 @@ router.post('/', onlineLeadCreateValidation, validate, createOnlineLead);
 
 router.use(authenticate);
 
-router.get('/', authorize(Role.SUPER_ADMIN, Role.ADMIN, Role.MEMBER), getOnlineLeads);
-router.patch('/:id/assign', idParamValidation, onlineLeadAssignValidation, validate, authorize(Role.SUPER_ADMIN, Role.ADMIN, Role.MEMBER), assignOnlineLead);
+router.get('/', authorize(Role.SUPER_ADMIN, Role.ADMIN), getOnlineLeads);
+router.patch('/:id/assign', idParamValidation, onlineLeadAssignValidation, validate, authorize(Role.SUPER_ADMIN, Role.ADMIN), assignOnlineLead);
 
 export default router;

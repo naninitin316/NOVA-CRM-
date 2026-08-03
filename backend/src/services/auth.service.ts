@@ -33,6 +33,7 @@ export class AuthService {
     company?: string;
     department?: string;
   }) {
+    throw new AppError('Public registration is disabled. Ask an administrator to create your account.', 403);
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new AppError('Email already registered.', 409);
 

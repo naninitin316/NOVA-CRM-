@@ -12,7 +12,8 @@ export const getUsers = asyncHandler(async (req: AuthRequest, res: Response) => 
 });
 
 export const getUserById = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const user = await userService.getUserById(getParam(req, 'id'));
+  const currentUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  const user = await userService.getUserById(getParam(req, 'id'), req.user!.role, currentUser?.company, req.user!.id);
   res.json({ success: true, data: user });
 });
 
@@ -35,6 +36,7 @@ export const deleteUser = asyncHandler(async (req: AuthRequest, res: Response) =
 });
 
 export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const user = await userService.updateUser(req.user!.id, req.body);
+  const { name, email, phone, profileImage } = req.body;
+  const user = await userService.updateUser(req.user!.id, { name, email, phone, profileImage }, req.user!.role, req.user!.company);
   res.json({ success: true, data: user });
 });

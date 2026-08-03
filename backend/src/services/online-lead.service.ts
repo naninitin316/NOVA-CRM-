@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { AppError } from '../utils/errorHandler';
 
 const ONLINE_LEAD_SOURCE = 'Online Lead';
-const ONLINE_LEAD_ROLES: Role[] = [Role.SUPER_ADMIN, Role.ADMIN, Role.MEMBER];
+const ONLINE_LEAD_ROLES: Role[] = [Role.SUPER_ADMIN, Role.ADMIN];
 const ASSIGNABLE_ROLES: Role[] = [Role.CONTRIBUTOR, Role.SALES_TEAM, Role.HR_TEAM];
 
 export class OnlineLeadService {

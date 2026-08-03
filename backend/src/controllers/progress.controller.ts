@@ -22,6 +22,13 @@ export const getAnalytics = asyncHandler(async (req: AuthRequest, res: Response)
 });
 
 export const getProgressLogs = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const logs = await progressService.getProgressLogs(getParam(req, 'taskId'));
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  const logs = await progressService.getProgressLogs(
+    getParam(req, 'taskId'),
+    req.user!.role,
+    req.user!.id,
+    user?.company,
+    req.user!.email
+  );
   res.json({ success: true, data: logs });
 });

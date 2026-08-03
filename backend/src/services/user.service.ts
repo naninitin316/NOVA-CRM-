@@ -3,6 +3,7 @@ import { Prisma, Role, TaskStatus } from '@prisma/client';
 import { AppError } from '../utils/errorHandler';
 import { canManageUserStatus } from '../utils/permissions';
 import { mailService } from './mail.service';
+import { taskService } from './task.service';
 
 const WELCOME_EMAIL_DEADLINE_MS = 22000;
 
@@ -63,7 +64,7 @@ export class UserService {
         : role === Role.MEMBER
           ? {
               company: company || undefined,
-              role: { in: [Role.MEMBER, Role.CONTRIBUTOR, Role.SALES_TEAM, Role.HR_TEAM] },
+              role: { in: [Role.CONTRIBUTOR, Role.SALES_TEAM, Role.HR_TEAM] },
             }
           : { company: company || undefined };
 
@@ -84,7 +85,11 @@ export class UserService {
     });
   }
 
-  async getUserById(id: string) {
+  private canViewCompanyUsers(role?: Role) {
+    return role === Role.SUPER_ADMIN || role === Role.ADMIN;
+  }
+
+  async getUserById(id: string, requesterRole?: Role, requesterCompany?: string | null, requesterId?: string) {
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -101,6 +106,15 @@ export class UserService {
       },
     });
     if (!user) throw new AppError('User not found.', 404);
+    if (requesterRole !== Role.SUPER_ADMIN) {
+      if (id === requesterId) return user;
+      if (!this.canViewCompanyUsers(requesterRole) || !requesterCompany || user.company !== requesterCompany) {
+        throw new AppError('Access denied.', 403);
+      }
+      if (user.role === Role.SUPER_ADMIN || user.role === Role.SUPPORT) {
+        throw new AppError('Access denied.', 403);
+      }
+    }
     return user;
   }
 
@@ -119,7 +133,7 @@ export class UserService {
     if (existing.role === Role.SUPER_ADMIN && requesterRole !== Role.SUPER_ADMIN) {
       throw new AppError('Only a super admin can edit another super admin.', 403);
     }
-    if (requesterRole !== Role.SUPER_ADMIN && requesterCompany && existing.company !== requesterCompany) {
+    if (requesterRole !== Role.SUPER_ADMIN && (!requesterCompany || existing.company !== requesterCompany)) {
       throw new AppError('Access denied.', 403);
     }
 
@@ -129,6 +143,9 @@ export class UserService {
     }
 
     if (data.company) {
+      if (requesterRole !== Role.SUPER_ADMIN && data.company !== requesterCompany) {
+        throw new AppError('You cannot move users outside your company.', 403);
+      }
       const companyExists = await prisma.company.findUnique({ where: { name: data.company } });
       if (!companyExists) throw new AppError('Company not registered.', 400);
     }
@@ -188,7 +205,7 @@ export class UserService {
         throw new AppError('The final super admin account cannot be deleted.', 400);
       }
     }
-    if (requesterRole !== Role.SUPER_ADMIN && requesterCompany && existing.company !== requesterCompany) {
+    if (requesterRole !== Role.SUPER_ADMIN && (!requesterCompany || existing.company !== requesterCompany)) {
       throw new AppError('Access denied.', 403);
     }
     await prisma.user.delete({ where: { id } });
@@ -316,24 +333,15 @@ export class ProgressService {
           { company: null, assignee: { is: { company: companyFilter } } },
         ];
       }
-    } else if (role === Role.ADMIN || role === Role.MEMBER) {
+    } else if (role === Role.ADMIN) {
       if (userCompany) {
         taskWhere.OR = [
           { company: userCompany },
           { company: null, assignee: { is: { company: userCompany } } },
         ];
       }
-    } else if (role === Role.CONTRIBUTOR || role === Role.SALES_TEAM) {
+    } else if (role === Role.MEMBER || role === Role.CONTRIBUTOR || role === Role.SALES_TEAM || role === Role.VIEWER || role === Role.HR_TEAM) {
       taskWhere.assignedTo = userId;
-    } else if (role === Role.VIEWER) {
-      if (userCompany) {
-        taskWhere.OR = [
-          { company: userCompany },
-          { company: null, assignee: { is: { company: userCompany } } },
-        ];
-      }
-    } else if (role === Role.HR_TEAM) {
-      taskWhere.OR = [{ department: 'HR' }, { assignedTo: userId }];
     }
 
     if (dateFrom || dateTo) {
@@ -455,7 +463,15 @@ export class ProgressService {
     return months;
   }
 
-  async getProgressLogs(taskId: string) {
+  async getProgressLogs(
+    taskId: string,
+    role: Role,
+    userId: string,
+    userCompany?: string | null,
+    userEmail?: string
+  ) {
+    await taskService.getTaskById(taskId, role, userId, userCompany, userEmail);
+
     return prisma.progress.findMany({
       where: { taskId },
       orderBy: { updatedAt: 'desc' },

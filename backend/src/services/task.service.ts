@@ -4,6 +4,10 @@ import { AppError } from '../utils/errorHandler';
 import { TaskFilters } from '../types';
 
 export class TaskService {
+  private canViewCompanyTasks(role?: Role) {
+    return role === Role.SUPER_ADMIN || role === Role.ADMIN;
+  }
+
   private toStartOfDay(value: string) {
     const date = new Date(value);
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) date.setHours(0, 0, 0, 0);
@@ -91,11 +95,12 @@ export class TaskService {
     customerName?: string | null;
     customerCompany?: string | null;
     description?: string | null;
-  }) {
+  }, company?: string | null) {
     const keys = this.leadKeys(lead);
     if (!keys.length) return;
 
     const existingTasks = await prisma.task.findMany({
+      where: company ? { company } : undefined,
       select: { customerEmail: true, customerPhone: true, customerName: true, customerCompany: true, description: true },
     });
     const existingKeys = new Set(existingTasks.flatMap((task) => this.leadKeys(task)));
@@ -105,14 +110,18 @@ export class TaskService {
     }
   }
 
-  private async ensureActiveAssignee(assignedTo?: string | null) {
-    if (!assignedTo) return;
+  private async ensureActiveAssignee(assignedTo?: string | null, company?: string | null) {
+    if (!assignedTo) return null;
     const assignee = await prisma.user.findUnique({
       where: { id: assignedTo },
-      select: { id: true, isActive: true },
+      select: { id: true, isActive: true, company: true, department: true },
     });
     if (!assignee) throw new AppError('Assignee not found.', 404);
     if (!assignee.isActive) throw new AppError('Assignee is disabled.', 400);
+    if (company && assignee.company !== company) {
+      throw new AppError('Assignee must belong to the same company.', 403);
+    }
+    return assignee;
   }
 
   private belongsToCompany(task: { company?: string | null; assignee?: { company?: string | null } | null }, company?: string | null) {
@@ -140,27 +149,15 @@ export class TaskService {
           { company: null, assignee: { is: { company: companyFilter } } },
         ];
       }
-    } else if (role === Role.ADMIN || role === Role.MEMBER) {
+    } else if (role === Role.ADMIN) {
       if (userCompany) {
         where.OR = [
           { company: userCompany },
           { company: null, assignee: { is: { company: userCompany } } },
         ];
       }
-    } else if (role === Role.CONTRIBUTOR || role === Role.SALES_TEAM) {
+    } else if (role === Role.MEMBER || role === Role.CONTRIBUTOR || role === Role.SALES_TEAM || role === Role.VIEWER || role === Role.HR_TEAM) {
       where.assignedTo = userId;
-    } else if (role === Role.VIEWER) {
-      if (userCompany) {
-        where.OR = [
-          { company: userCompany },
-          { company: null, assignee: { is: { company: userCompany } } },
-        ];
-      }
-    } else if (role === Role.HR_TEAM) {
-      where.OR = [
-        { department: 'HR' },
-        { assignedTo: userId },
-      ];
     }
 
     // Apply filters
@@ -184,7 +181,9 @@ export class TaskService {
     if (filters.status) where.status = filters.status as TaskStatus;
     if (filters.priority) where.priority = filters.priority as Prisma.EnumPriorityFilter;
     if (filters.department) where.department = filters.department;
-    if (filters.assignedTo) where.assignedTo = filters.assignedTo;
+    if (filters.assignedTo) {
+      where.assignedTo = this.canViewCompanyTasks(role) ? filters.assignedTo : userId;
+    }
     if (filters.dateFrom || filters.dateTo) {
       const createdAt: Prisma.DateTimeFilter = {};
       if (filters.dateFrom) createdAt.gte = this.toStartOfDay(filters.dateFrom);
@@ -255,19 +254,10 @@ export class TaskService {
     if (!task) throw new AppError('Task not found.', 404);
 
     // Access control
-    if ((role === Role.ADMIN || role === Role.MEMBER) && !this.belongsToCompany(task, userCompany)) {
+    if (this.canViewCompanyTasks(role) && role !== Role.SUPER_ADMIN && !this.belongsToCompany(task, userCompany)) {
       throw new AppError('Access denied.', 403);
     }
-    if ((role === Role.CONTRIBUTOR || role === Role.SALES_TEAM) && task.assignedTo !== userId) {
-      throw new AppError('Access denied.', 403);
-    }
-    if (role === Role.VIEWER) {
-      const belongsToCompany = task.company === userCompany || task.assignee?.company === userCompany;
-      if (!belongsToCompany) {
-        throw new AppError('Access denied.', 403);
-      }
-    }
-    if (role === Role.HR_TEAM && task.department !== 'HR' && task.assignedTo !== userId) {
+    if (!this.canViewCompanyTasks(role) && task.assignedTo !== userId) {
       throw new AppError('Access denied.', 403);
     }
 
@@ -295,14 +285,17 @@ export class TaskService {
   }
 
   async createTask(data: Prisma.TaskUncheckedCreateInput) {
-    await this.ensureActiveAssignee(typeof data.assignedTo === 'string' ? data.assignedTo : undefined);
+    await this.ensureActiveAssignee(
+      typeof data.assignedTo === 'string' ? data.assignedTo : undefined,
+      typeof data.company === 'string' ? data.company : undefined
+    );
     await this.ensureUniqueLeadTask({
       customerEmail: typeof data.customerEmail === 'string' ? data.customerEmail : undefined,
       customerPhone: typeof data.customerPhone === 'string' ? data.customerPhone : undefined,
       customerName: typeof data.customerName === 'string' ? data.customerName : undefined,
       customerCompany: typeof data.customerCompany === 'string' ? data.customerCompany : undefined,
       description: typeof data.description === 'string' ? data.description : undefined,
-    });
+    }, typeof data.company === 'string' ? data.company : undefined);
     return prisma.task.create({
       data: {
         ...data,
@@ -357,6 +350,7 @@ export class TaskService {
     if (!cleanedLeads.length) throw new AppError('No usable lead rows found.', 400);
 
     const existingTasks = await prisma.task.findMany({
+      where: data.company ? { company: data.company } : undefined,
       select: { customerEmail: true, customerPhone: true, customerName: true, customerCompany: true, description: true },
     });
     const existingKeys = new Set(existingTasks.flatMap((task) => this.leadKeys(task)));
@@ -449,21 +443,16 @@ export class TaskService {
       include: { assignee: { select: { company: true } } },
     });
     if (!existing) throw new AppError('Task not found.', 404);
-    if ((role === Role.ADMIN || role === Role.MEMBER) && !this.belongsToCompany(existing, userCompany)) {
+    if (this.canViewCompanyTasks(role) && role !== Role.SUPER_ADMIN && !this.belongsToCompany(existing, userCompany)) {
       throw new AppError('Access denied.', 403);
     }
-    if ((role === Role.CONTRIBUTOR || role === Role.SALES_TEAM) && existing.assignedTo !== updatedBy) {
+    if (!this.canViewCompanyTasks(role) && existing.assignedTo !== updatedBy) {
       throw new AppError('Access denied.', 403);
-    }
-    if (role === Role.VIEWER) {
-      const belongsToCompany = existing.company === userCompany || existing.assignee?.company === userCompany;
-      if (!belongsToCompany) {
-        throw new AppError('Access denied.', 403);
-      }
     }
 
     if (typeof data.assignedTo === 'string') {
-      await this.ensureActiveAssignee(data.assignedTo);
+      const targetCompany = typeof data.company === 'string' ? data.company : existing.company || userCompany;
+      await this.ensureActiveAssignee(data.assignedTo, targetCompany);
     }
 
     const task = await prisma.task.update({
@@ -503,11 +492,12 @@ export class TaskService {
   }
 
   async assignTask(id: string, assignedTo: string, role?: Role, userCompany?: string | null) {
-    await this.ensureActiveAssignee(assignedTo);
     const assignee = await prisma.user.findUnique({
       where: { id: assignedTo },
-      select: { company: true, department: true },
+      select: { company: true, department: true, isActive: true },
     });
+    if (!assignee) throw new AppError('Assignee not found.', 404);
+    if (!assignee.isActive) throw new AppError('Assignee is disabled.', 400);
     const existing = await prisma.task.findUnique({
       where: { id },
       include: { assignee: { select: { company: true } } },

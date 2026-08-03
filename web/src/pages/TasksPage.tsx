@@ -28,6 +28,7 @@ export function TasksPage() {
   const user = useSelector((s: RootState) => s.auth.user);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const canCreateTasks = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER' || user?.role === 'CONTRIBUTOR';
+  const canImportTasks = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER';
   const canDeleteTasks = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const { data: users } = useUsers(isSuperAdmin);
   const companyOptions = useMemo(
@@ -130,9 +131,11 @@ export function TasksPage() {
             </button>
             {canCreateTasks && (
               <>
-                <button className="btn btn-secondary btn-sm" onClick={() => navigate('/tasks/import')}>
-                  <FileUp size={16} /> Import CSV
-                </button>
+                {canImportTasks && (
+                  <button className="btn btn-secondary btn-sm" onClick={() => navigate('/tasks/import')}>
+                    <FileUp size={16} /> Import CSV
+                  </button>
+                )}
                 <button className="btn btn-primary btn-sm" onClick={() => navigate('/tasks/new')}>
                   <Plus size={16} /> New Task
                 </button>

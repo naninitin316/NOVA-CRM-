@@ -19,7 +19,7 @@ export const permissions = {
     departments: ['create', 'read', 'update', 'delete'],
   },
   [Role.MEMBER]: {
-    tasks: ['create', 'read', 'update', 'assign'],
+    tasks: ['create', 'read', 'update'],
     users: ['read'],
     progress: ['read', 'create'],
     support: ['read'],

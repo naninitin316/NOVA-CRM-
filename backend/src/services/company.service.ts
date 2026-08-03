@@ -40,7 +40,7 @@ export class CompanyService {
     }));
   }
 
-  async getCompanyByName(name: string, role: Role, userCompany?: string | null) {
+  async getCompanyByName(name: string, role: Role, userId: string, userCompany?: string | null) {
     if (role !== Role.SUPER_ADMIN && userCompany !== name) {
       throw new AppError('Access denied.', 403);
     }
@@ -64,12 +64,15 @@ export class CompanyService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const taskWhere = {
-      OR: [
-        { company: name },
-        { company: null, assignee: { is: { company: name } } },
-      ],
-    };
+    const canViewCompanyTasks = role === Role.SUPER_ADMIN || role === Role.ADMIN;
+    const taskWhere: Prisma.TaskWhereInput = canViewCompanyTasks
+      ? {
+          OR: [
+            { company: name },
+            { company: null, assignee: { is: { company: name } } },
+          ],
+        }
+      : { assignedTo: userId };
     const [taskCount, processedTaskCount, rejectedTaskCount, onHoldTaskCount, recentTasks, tasks] = await Promise.all([
       prisma.task.count({ where: taskWhere }),
       prisma.task.count({ where: { ...taskWhere, status: TaskStatus.PROCESSED } }),

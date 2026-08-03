@@ -23,7 +23,7 @@ export function OnlineLeadsPage() {
   const navigate = useNavigate();
   const user = useSelector((s: RootState) => s.auth.user);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const canUseOnlineLeads = isSuperAdmin || user?.role === 'ADMIN' || user?.role === 'MEMBER';
+  const canUseOnlineLeads = isSuperAdmin || user?.role === 'ADMIN';
   const { data: companies } = useCompanies();
   const [company, setCompany] = useState(user?.company || '');
   const effectiveCompany = isSuperAdmin ? company || companies?.[0]?.name : user?.company;
