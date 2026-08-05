@@ -30,7 +30,8 @@ export function TasksPage() {
   const canCreateTasks = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER' || user?.role === 'CONTRIBUTOR';
   const canImportTasks = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER';
   const canDeleteTasks = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
-  const { data: users } = useUsers(isSuperAdmin);
+  const canReadUsers = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MEMBER';
+  const { data: users } = useUsers(canReadUsers);
   const companyOptions = useMemo(
     () => Array.from(new Set((users || []).map((item) => item.company).filter(Boolean))) as string[],
     [users]
@@ -40,6 +41,12 @@ export function TasksPage() {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ text: string; kind?: 'success' | 'error' } | null>(null);
+  const assigneeOptions = useMemo(
+    () => (users || [])
+      .filter((item) => item.isActive && (!filters.company || item.company === filters.company))
+      .map((item) => ({ id: item.id, name: item.name, email: item.email, department: item.department })),
+    [filters.company, users]
+  );
 
   const { data, isLoading } = useTasks({ ...filters, search: search || undefined });
   const deleteTask = useDeleteTask();
@@ -177,6 +184,9 @@ export function TasksPage() {
           <>
             <TaskTable
               tasks={data?.tasks || []}
+              assigneeOptions={assigneeOptions}
+              filters={{ assignedTo: filters.assignedTo, status: filters.status, priority: filters.priority }}
+              onFilterChange={(nextFilters) => setFilters({ ...filters, ...nextFilters, page: 1 })}
               onRowClick={(id) => navigate(`/tasks/${id}`)}
               onEdit={(task) => navigate(`/tasks/${task.id}/edit`)}
               onDelete={canDeleteTasks ? handleDelete : undefined}

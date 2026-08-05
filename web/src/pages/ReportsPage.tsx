@@ -136,6 +136,12 @@ export function ReportsPage() {
     LatestProgressAt: formatDateTime(task.progress?.[0]?.updatedAt),
     UpdatedBy: task.progress?.[0]?.updater?.name || '',
     WhatUpdated: describeTaskUpdate(task),
+    LatestCommentAt: formatDateTime(task.comments?.[0]?.commentDate),
+    LatestCommentBy: task.comments?.[0]?.user?.name || '',
+    LatestComment: task.comments?.[0]?.comment || '',
+    Comments: (task.comments || [])
+      .map((comment) => `${formatDateTime(comment.commentDate)} - ${comment.user?.name || 'User'}: ${comment.comment}`)
+      .join(' | '),
     Task: task.title,
     Customer: task.customerName || '',
     Email: task.customerEmail || '',
@@ -151,7 +157,7 @@ export function ReportsPage() {
   }));
 
   const emptyRow = {
-    Date: '', Time: '', UpdatedDate: '', UpdatedTime: '', LatestProgressAt: '', UpdatedBy: '', WhatUpdated: '', Task: '', Customer: '', Email: '', Phone: '', Company: '', Priority: '', Status: '', Department: '', Remarks: '', AssignedTo: '', AssignedToEmail: '', AssignedDepartment: '',
+    Date: '', Time: '', UpdatedDate: '', UpdatedTime: '', LatestProgressAt: '', UpdatedBy: '', WhatUpdated: '', LatestCommentAt: '', LatestCommentBy: '', LatestComment: '', Comments: '', Task: '', Customer: '', Email: '', Phone: '', Company: '', Priority: '', Status: '', Department: '', Remarks: '', AssignedTo: '', AssignedToEmail: '', AssignedDepartment: '',
   };
 
   const downloadCsv = (items = tasks, name = `reports-${scope === 'day' ? selectedDate : 'all'}`) => {

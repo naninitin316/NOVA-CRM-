@@ -27,7 +27,9 @@ export class TaskService {
   }
 
   private normalizePhone(phone?: string | null) {
-    return phone?.replace(/\D/g, '') || undefined;
+    const digits = phone?.replace(/\D/g, '') || '';
+    if (!digits) return undefined;
+    return digits.length > 10 ? digits.slice(-10) : digits;
   }
 
   private defaultDueDate() {
@@ -120,9 +122,23 @@ export class TaskService {
 
     const existingTasks = await prisma.task.findMany({
       where: company ? { company } : undefined,
-      select: { customerEmail: true, customerPhone: true, customerName: true, customerCompany: true, description: true },
+      select: {
+        customerEmail: true,
+        customerPhone: true,
+        customerName: true,
+        customerCompany: true,
+        description: true,
+        leadEmailKey: true,
+        leadPhoneKey: true,
+        leadFallbackKey: true,
+      },
     });
-    const existingKeys = new Set(existingTasks.flatMap((task) => this.leadKeys(task)));
+    const existingKeys = new Set(existingTasks.flatMap((task) => [
+      ...this.leadKeys(task),
+      task.leadEmailKey?.replace(/^company:[^:]+:/, ''),
+      task.leadPhoneKey?.replace(/^company:[^:]+:/, ''),
+      task.leadFallbackKey?.replace(/^company:[^:]+:/, ''),
+    ].filter(Boolean) as string[]));
 
     if (keys.some((key) => existingKeys.has(key))) {
       throw new AppError('A task for this lead already exists.', 409);
@@ -248,6 +264,10 @@ export class TaskService {
             orderBy: { updatedAt: 'desc' },
             take: 1,
             include: { updater: { select: { id: true, name: true } } },
+          },
+          comments: {
+            orderBy: { commentDate: 'desc' },
+            include: { user: { select: { id: true, name: true } } },
           },
         },
       }),
@@ -385,9 +405,23 @@ export class TaskService {
 
     const existingTasks = await prisma.task.findMany({
       where: data.company ? { company: data.company } : undefined,
-      select: { customerEmail: true, customerPhone: true, customerName: true, customerCompany: true, description: true },
+      select: {
+        customerEmail: true,
+        customerPhone: true,
+        customerName: true,
+        customerCompany: true,
+        description: true,
+        leadEmailKey: true,
+        leadPhoneKey: true,
+        leadFallbackKey: true,
+      },
     });
-    const existingKeys = new Set(existingTasks.flatMap((task) => this.leadKeys(task)));
+    const existingKeys = new Set(existingTasks.flatMap((task) => [
+      ...this.leadKeys(task),
+      task.leadEmailKey?.replace(/^company:[^:]+:/, ''),
+      task.leadPhoneKey?.replace(/^company:[^:]+:/, ''),
+      task.leadFallbackKey?.replace(/^company:[^:]+:/, ''),
+    ].filter(Boolean) as string[]));
     const importKeys = new Set<string>();
     const uniqueLeads = cleanedLeads.filter((lead) => {
       const keys = this.leadKeys(lead);

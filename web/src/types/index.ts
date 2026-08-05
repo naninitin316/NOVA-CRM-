@@ -213,6 +213,7 @@ export interface TaskFilters {
   status?: TaskStatus;
   priority?: Priority;
   department?: string;
+  assignedTo?: string;
   company?: string;
   dateFrom?: string;
   dateTo?: string;
