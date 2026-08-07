@@ -25,6 +25,7 @@ interface TaskFormValues {
   customerEmail: string;
   customerCompany: string;
   customerSource: string;
+  projectName: string;
   assignedTo: string;
   status: TaskStatus;
   priority: Priority;
@@ -51,6 +52,7 @@ export function TaskCreatePage() {
       customerEmail: '',
       customerCompany: '',
       customerSource: '',
+      projectName: '',
       assignedTo: '',
       status: 'ON_HOLD',
       priority: 'MEDIUM',
@@ -76,6 +78,7 @@ export function TaskCreatePage() {
     if (formData.customerEmail.trim()) payload.customerEmail = formData.customerEmail.trim();
     if (formData.customerCompany.trim()) payload.customerCompany = formData.customerCompany.trim();
     if (formData.customerSource.trim()) payload.customerSource = formData.customerSource.trim();
+    if (formData.projectName.trim()) payload.projectName = formData.projectName.trim();
     if (formData.remarks.trim()) payload.remarks = formData.remarks.trim();
     if (formData.dueDate) payload.dueDate = formData.dueDate;
     if (isContributor) {
@@ -170,6 +173,9 @@ export function TaskCreatePage() {
               />
               <Controller control={control} name="customerSource"
                 render={({ field }) => <div className="form-group"><label className="form-label">Source</label><input className="form-input" {...field} /></div>}
+              />
+              <Controller control={control} name="projectName"
+                render={({ field }) => <div className="form-group"><label className="form-label">Project Name</label><input className="form-input" {...field} /></div>}
               />
             </aside>
 

@@ -70,6 +70,7 @@ export function TaskDetailPage() {
     { label: 'Customer', value: task.customerName },
     { label: 'Phone', value: task.customerPhone },
     { label: 'Email', value: task.customerEmail },
+    { label: 'Project Name', value: task.projectName },
     { label: 'Company', value: task.customerCompany },
     { label: 'Source', value: task.customerSource },
   ].filter((item) => item.value);
@@ -226,6 +227,7 @@ export function TaskDetailPage() {
               <div className="task-view-fields">
                 {[
                   { icon: User, label: 'Assigned user', value: task.assignee?.name || 'Unassigned', hint: task.assignee?.department || 'No team set' },
+                  { icon: Building2, label: 'Project Name', value: task.projectName || 'No project set', hint: 'Lead project' },
                   { icon: Building2, label: 'Company', value: task.company || 'No company set', hint: task.department || 'No department' },
                   { icon: Calendar, label: 'Due date', value: task.dueDate ? formatDateTime(task.dueDate) : 'Not set', hint: 'Deadline' },
                   { icon: Clock, label: 'Created', value: formatDateTime(task.createdAt), hint: 'Task opened' },

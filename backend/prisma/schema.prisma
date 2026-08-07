@@ -86,6 +86,7 @@ model Task {
   customerEmail String?
   customerCompany String?
   customerSource String?
+  projectName String?
   leadEmailKey String?
   leadPhoneKey String?
   leadFallbackKey String?

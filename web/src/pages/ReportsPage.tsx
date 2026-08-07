@@ -143,6 +143,7 @@ export function ReportsPage() {
       .map((comment) => `${formatDateTime(comment.commentDate)} - ${comment.user?.name || 'User'}: ${comment.comment}`)
       .join(' | '),
     Task: task.title,
+    ProjectName: task.projectName || '',
     Customer: task.customerName || '',
     Email: task.customerEmail || '',
     Phone: task.customerPhone || '',
@@ -157,7 +158,7 @@ export function ReportsPage() {
   }));
 
   const emptyRow = {
-    Date: '', Time: '', UpdatedDate: '', UpdatedTime: '', LatestProgressAt: '', UpdatedBy: '', WhatUpdated: '', LatestCommentAt: '', LatestCommentBy: '', LatestComment: '', Comments: '', Task: '', Customer: '', Email: '', Phone: '', Company: '', Priority: '', Status: '', Department: '', Remarks: '', AssignedTo: '', AssignedToEmail: '', AssignedDepartment: '',
+    Date: '', Time: '', UpdatedDate: '', UpdatedTime: '', LatestProgressAt: '', UpdatedBy: '', WhatUpdated: '', LatestCommentAt: '', LatestCommentBy: '', LatestComment: '', Comments: '', Task: '', ProjectName: '', Customer: '', Email: '', Phone: '', Company: '', Priority: '', Status: '', Department: '', Remarks: '', AssignedTo: '', AssignedToEmail: '', AssignedDepartment: '',
   };
 
   const downloadCsv = (items = tasks, name = `reports-${scope === 'day' ? selectedDate : 'all'}`) => {

@@ -13,8 +13,9 @@ const FIELD_ALIASES: Record<keyof LeadTaskInput, string[]> = {
   customerName: ['name', 'customer name', 'customer', 'lead name', 'client name'],
   customerPhone: ['phone', 'mobile', 'contact', 'contact number', 'phone number', 'mobile number', 'contactno', 'contact no'],
   customerEmail: ['email', 'email address', 'emailid', 'email id'],
-  customerCompany: ['company', 'organization', 'business', 'project name', 'project', 'property', 'property name', 'interestedin', 'interested in'],
+  customerCompany: ['company', 'organization', 'business'],
   customerSource: ['source', 'lead source', 'type of lead', 'contacted by', 'responsetype', 'response type', 'prodtype', 'prod type'],
+  projectName: ['project name', 'project', 'project listing'],
   description: ['description', 'notes', 'details', 'message details', 'brief desc.', 'brief desc', 'subject', 'query', 'questionnaire'],
   remarks: ['comment', 'remarks', 'remark', 'status', 'any other details', 'plan to buy', 'budget', 'followupcurrentstatus', 'followup current status', 'receiveddate', 'received date', 'calledon', 'called on', 'leadscore', 'lead score'],
   assignedTo: ['assignee id'],
@@ -98,7 +99,7 @@ const mapLeadRows = (rows: string[][]): LeadTaskInput[] => {
     if (!isValidEmail(lead.customerEmail)) delete lead.customerEmail;
     return lead;
   }).filter((lead) =>
-    Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany)
+    Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany || lead.projectName)
   );
 };
 
@@ -134,25 +135,47 @@ const isLikelyName = (value?: string) => {
   return /^[A-Za-z][A-Za-z .'-]{1,60}$/.test(value);
 };
 
-const isLikelyProject = (value?: string) => {
-  if (!value) return false;
-  if (emailPattern.test(value) || phonePattern.test(value) || datePattern.test(value) || isLikelyName(value)) return false;
-  if (/verified|domestic lead|nri lead|individual|---/i.test(value)) return false;
-  return value.length <= 90;
+const extractProjectFromMessage = (value?: string) => {
+  if (!value) return undefined;
+  const match = value.match(/^(.+?),\s*Hyderabad\s*-/i);
+  return match?.[1]?.trim();
+};
+
+const getProjectNamesFromExcelExport = (values: string[]) => {
+  const projects = new Set<string>();
+
+  values.forEach((value) => {
+    const projectFromMessage = extractProjectFromMessage(value);
+    if (projectFromMessage) projects.add(projectFromMessage);
+  });
+
+  return projects;
 };
 
 const mapLeadRowsFromExcelExport = (values: string[]): LeadTaskInput[] => {
   const leads = new Map<string, LeadTaskInput>();
+  const projectNames = getProjectNamesFromExcelExport(values);
+  let currentProject: string | undefined;
 
   values.forEach((value, index) => {
+    const projectFromValue = extractProjectFromMessage(value);
+    if (projectFromValue) currentProject = projectFromValue;
+    if (projectNames.has(value)) currentProject = value;
+
     if (!emailPattern.test(value)) return;
 
-    const before = values.slice(Math.max(0, index - 4), index).reverse();
+    const beforeRaw = values.slice(Math.max(0, index - 5), index);
+    const before = beforeRaw.slice().reverse();
     const after = values.slice(index + 1, Math.min(values.length, index + 14));
     const phone = after.find((item) => phonePattern.test(item));
-    const name = before.find(isLikelyName);
-    const project = before.find(isLikelyProject) || after.find((item) => isLikelyProject(item) && !phonePattern.test(item));
     const description = after.find((item) => /interested|looking|viewed your contact|requirement/i.test(item));
+    const immediateBefore = beforeRaw[beforeRaw.length - 1];
+    const previousBefore = beforeRaw[beforeRaw.length - 2];
+    const hasProjectBeforeEmail = isLikelyName(previousBefore) && projectNames.has(immediateBefore);
+    const name = hasProjectBeforeEmail ? previousBefore : before.find(isLikelyName);
+    const project = hasProjectBeforeEmail
+      ? immediateBefore
+      : extractProjectFromMessage(description) || before.find((item) => projectNames.has(item) && item !== name) || currentProject;
     const messageDate = after.find((item) => datePattern.test(item));
     const source = after.find((item) => /domestic lead|nri lead|lead/i.test(item));
     const remarks = [messageDate, after.find((item) => /not interested|different requirement|not looking/i.test(item))]
@@ -163,7 +186,7 @@ const mapLeadRowsFromExcelExport = (values: string[]): LeadTaskInput[] => {
       customerName: name,
       customerEmail: value,
       customerPhone: phone,
-      customerCompany: project,
+      projectName: project,
       customerSource: source || 'MagicBricks',
       description,
       remarks,
@@ -171,7 +194,7 @@ const mapLeadRowsFromExcelExport = (values: string[]): LeadTaskInput[] => {
   });
 
   return Array.from(leads.values()).filter((lead) =>
-    Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany)
+    Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany || lead.projectName)
   );
 };
 
@@ -370,7 +393,7 @@ export function TaskImportPage() {
                 <div className="task-import-row" key={`${lead.customerEmail || lead.customerPhone || index}-${index}`}>
                   <div>
                     <strong>{lead.customerName || lead.customerCompany || 'Unnamed lead'}</strong>
-                    <span>{[lead.customerPhone, lead.customerEmail, lead.customerCompany, lead.customerSource].filter(Boolean).join(' · ') || 'No contact details'}</span>
+                    <span>{[lead.customerPhone, lead.customerEmail, lead.projectName || lead.customerCompany, lead.customerSource].filter(Boolean).join(' · ') || 'No contact details'}</span>
                   </div>
                   {distributionMembers.length > 0 && (
                     <span className="task-import-assignee">

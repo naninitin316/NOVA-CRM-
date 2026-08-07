@@ -55,6 +55,7 @@ export const createTask = asyncHandler(async (req: AuthRequest, res: Response) =
     customerEmail,
     customerCompany,
     customerSource,
+    projectName,
     assignedTo,
     status,
     priority,
@@ -82,6 +83,7 @@ export const createTask = asyncHandler(async (req: AuthRequest, res: Response) =
     customerEmail,
     customerCompany,
     customerSource,
+    projectName,
     status,
     priority,
     company,
@@ -105,6 +107,7 @@ export const updateTask = asyncHandler(async (req: AuthRequest, res: Response) =
     customerEmail,
     customerCompany,
     customerSource,
+    projectName,
     assignedTo,
     status,
     priority,
@@ -121,6 +124,7 @@ export const updateTask = asyncHandler(async (req: AuthRequest, res: Response) =
   if (customerEmail !== undefined) updateData.customerEmail = customerEmail;
   if (customerCompany !== undefined) updateData.customerCompany = customerCompany;
   if (customerSource !== undefined) updateData.customerSource = customerSource;
+  if (projectName !== undefined) updateData.projectName = projectName;
   if (status !== undefined) updateData.status = status;
   if (priority !== undefined) updateData.priority = priority;
   if (department !== undefined) updateData.department = department;

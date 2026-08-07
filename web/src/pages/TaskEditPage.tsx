@@ -25,6 +25,7 @@ interface TaskFormValues {
   customerEmail: string;
   customerCompany: string;
   customerSource: string;
+  projectName: string;
   assignedTo: string;
   status: TaskStatus;
   priority: Priority;
@@ -53,6 +54,7 @@ export function TaskEditPage() {
       customerEmail: '',
       customerCompany: '',
       customerSource: '',
+      projectName: '',
       assignedTo: '',
       status: 'ON_HOLD',
       priority: 'MEDIUM',
@@ -73,6 +75,7 @@ export function TaskEditPage() {
       customerEmail: task.customerEmail || '',
       customerCompany: task.customerCompany || '',
       customerSource: task.customerSource || '',
+      projectName: task.projectName || '',
       assignedTo: task.assignedTo || '',
       status: task.status,
       priority: task.priority,
@@ -163,6 +166,9 @@ export function TaskEditPage() {
               />
               <Controller control={control} name="customerSource"
                 render={({ field }) => <div className="form-group"><label className="form-label">Source</label><input className="form-input" disabled={!canEditTaskDetails} {...field} /></div>}
+              />
+              <Controller control={control} name="projectName"
+                render={({ field }) => <div className="form-group"><label className="form-label">Project Name</label><input className="form-input" disabled={!canEditTaskDetails} {...field} /></div>}
               />
             </aside>
 

@@ -381,6 +381,7 @@ export class TaskService {
       customerEmail?: string;
       customerCompany?: string;
       customerSource?: string;
+      projectName?: string;
       description?: string;
       remarks?: string;
       assignedTo?: string;
@@ -393,12 +394,13 @@ export class TaskService {
         customerEmail: this.cleanEmail(lead.customerEmail),
         customerCompany: lead.customerCompany?.trim(),
         customerSource: lead.customerSource?.trim(),
+        projectName: lead.projectName?.trim(),
         description: lead.description?.trim(),
         remarks: lead.remarks?.trim(),
         assignedTo: lead.assignedTo?.trim(),
       }))
       .filter((lead) =>
-        Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany)
+        Boolean(lead.customerName || lead.customerPhone || lead.customerEmail || lead.customerCompany || lead.projectName)
       );
 
     if (!cleanedLeads.length) throw new AppError('No usable lead rows found.', 400);
@@ -485,9 +487,10 @@ export class TaskService {
               description: lead.description || 'Contact this lead and update the task status.',
               customerName: lead.customerName,
               customerPhone: lead.customerPhone,
-              customerEmail: lead.customerEmail,
-              customerCompany: lead.customerCompany,
-              customerSource: lead.customerSource,
+            customerEmail: lead.customerEmail,
+            customerCompany: lead.customerCompany,
+            customerSource: lead.customerSource,
+            projectName: lead.projectName,
               ...this.leadIdentity(lead, data.company),
               company: data.company,
               remarks: lead.remarks,

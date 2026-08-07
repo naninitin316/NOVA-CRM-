@@ -90,6 +90,7 @@ export interface Task {
   customerEmail?: string;
   customerCompany?: string;
   customerSource?: string;
+  projectName?: string;
   company?: string;
   assignedTo?: string;
   status: TaskStatus;
@@ -148,6 +149,7 @@ export interface LeadTaskInput {
   customerEmail?: string;
   customerCompany?: string;
   customerSource?: string;
+  projectName?: string;
   description?: string;
   remarks?: string;
   assignedTo?: string;
