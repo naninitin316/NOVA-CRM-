@@ -7,7 +7,10 @@ import { mailService } from './mail.service';
 
 export class AuthService {
   async login(email: string, password: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim();
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+    });
     if (!user) throw new AppError('Invalid email or password.', 401);
     if (!user.isActive) throw new AppError('Account is disabled.', 403);
 
