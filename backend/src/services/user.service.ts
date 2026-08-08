@@ -340,7 +340,7 @@ export class ProgressService {
           { company: null, assignee: { is: { company: userCompany } } },
         ];
       }
-    } else if (role === Role.MEMBER || role === Role.CONTRIBUTOR || role === Role.SALES_TEAM || role === Role.VIEWER || role === Role.HR_TEAM) {
+    } else {
       taskWhere.assignedTo = userId;
     }
 

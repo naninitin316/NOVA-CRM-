@@ -4,16 +4,28 @@ import { AuthRequest } from '../types';
 import { asyncHandler } from '../utils/errorHandler';
 import { getParam } from '../utils/params';
 import { companyService } from '../services/company.service';
+import { AppError } from '../utils/errorHandler';
+
+const getCurrentUser = async (req: AuthRequest) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user || !user.isActive) throw new AppError('User not found or inactive.', 401);
+  return user;
+};
 
 export const getCompanies = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const currentUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  const companies = await companyService.getCompanies(req.user!.role, currentUser?.company);
+  const currentUser = await getCurrentUser(req);
+  const companies = await companyService.getCompanies(currentUser.role, currentUser.company);
   res.json({ success: true, data: companies });
 });
 
 export const getCompanyByName = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const currentUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  const company = await companyService.getCompanyByName(decodeURIComponent(getParam(req, 'name')), req.user!.role, req.user!.id, currentUser?.company);
+  const currentUser = await getCurrentUser(req);
+  const company = await companyService.getCompanyByName(
+    decodeURIComponent(getParam(req, 'name')),
+    currentUser.role,
+    currentUser.id,
+    currentUser.company
+  );
   res.json({ success: true, data: company });
 });
 

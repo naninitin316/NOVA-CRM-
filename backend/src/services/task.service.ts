@@ -8,6 +8,10 @@ export class TaskService {
     return role === Role.SUPER_ADMIN || role === Role.ADMIN;
   }
 
+  private ownAssignedTaskScope(userId: string): Prisma.TaskWhereInput {
+    return { assignedTo: userId };
+  }
+
   private toStartOfDay(value: string) {
     const date = new Date(value);
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) date.setHours(0, 0, 0, 0);
@@ -173,65 +177,69 @@ export class TaskService {
     userEmail: string,
     filters: TaskFilters
   ): Prisma.TaskWhereInput {
-    const where: Prisma.TaskWhereInput = {};
+    const and: Prisma.TaskWhereInput[] = [];
     const companyFilter = filters.company || userCompany || undefined;
 
-    // Role-based access
+    // Role-based access. Non-admin task visibility is always restricted to
+    // the logged-in user's assigned tasks, regardless of incoming filters.
     if (role === Role.SUPER_ADMIN) {
       if (companyFilter) {
-        where.OR = [
-          { company: companyFilter },
-          { company: null, assignee: { is: { company: companyFilter } } },
-        ];
+        and.push({
+          OR: [
+            { company: companyFilter },
+            { company: null, assignee: { is: { company: companyFilter } } },
+          ],
+        });
       }
     } else if (role === Role.ADMIN) {
       if (userCompany) {
-        where.OR = [
-          { company: userCompany },
-          { company: null, assignee: { is: { company: userCompany } } },
-        ];
+        and.push({
+          OR: [
+            { company: userCompany },
+            { company: null, assignee: { is: { company: userCompany } } },
+          ],
+        });
+      } else {
+        and.push({ id: { equals: '__no_company_scope__' } });
       }
-    } else if (role === Role.MEMBER || role === Role.CONTRIBUTOR || role === Role.SALES_TEAM || role === Role.VIEWER || role === Role.HR_TEAM) {
-      where.assignedTo = userId;
+    } else {
+      and.push(this.ownAssignedTaskScope(userId));
     }
 
     // Apply filters
     if (filters.search) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        {
-          OR: [
-            { title: { contains: filters.search, mode: 'insensitive' } },
-            { description: { contains: filters.search, mode: 'insensitive' } },
-            { remarks: { contains: filters.search, mode: 'insensitive' } },
-            { customerName: { contains: filters.search, mode: 'insensitive' } },
-            { customerPhone: { contains: filters.search, mode: 'insensitive' } },
-            { customerEmail: { contains: filters.search, mode: 'insensitive' } },
-            { customerCompany: { contains: filters.search, mode: 'insensitive' } },
-          ],
-        },
-      ];
+      and.push({
+        OR: [
+          { title: { contains: filters.search, mode: 'insensitive' } },
+          { description: { contains: filters.search, mode: 'insensitive' } },
+          { remarks: { contains: filters.search, mode: 'insensitive' } },
+          { customerName: { contains: filters.search, mode: 'insensitive' } },
+          { customerPhone: { contains: filters.search, mode: 'insensitive' } },
+          { customerEmail: { contains: filters.search, mode: 'insensitive' } },
+          { customerCompany: { contains: filters.search, mode: 'insensitive' } },
+        ],
+      });
     }
 
-    if (filters.status) where.status = filters.status as TaskStatus;
-    if (filters.priority) where.priority = filters.priority as Prisma.EnumPriorityFilter;
-    if (filters.department) where.department = filters.department;
+    if (filters.status) and.push({ status: filters.status as TaskStatus });
+    if (filters.priority) and.push({ priority: filters.priority as Prisma.EnumPriorityFilter });
+    if (filters.department) and.push({ department: filters.department });
     if (filters.assignedTo) {
-      where.assignedTo = this.canViewCompanyTasks(role) ? filters.assignedTo : userId;
+      and.push({ assignedTo: this.canViewCompanyTasks(role) ? filters.assignedTo : userId });
     }
     if (filters.dateFrom || filters.dateTo) {
       const createdAt: Prisma.DateTimeFilter = {};
       if (filters.dateFrom) createdAt.gte = this.toStartOfDay(filters.dateFrom);
       if (filters.dateTo) createdAt.lte = this.toEndOfDay(filters.dateTo);
-      where.createdAt = createdAt;
+      and.push({ createdAt });
     }
     if (filters.updatedFrom || filters.updatedTo) {
       const updatedAt: Prisma.DateTimeFilter = {};
       if (filters.updatedFrom) updatedAt.gte = this.toStartOfDay(filters.updatedFrom);
       if (filters.updatedTo) updatedAt.lte = this.toEndOfDay(filters.updatedTo);
-      where.updatedAt = updatedAt;
+      and.push({ updatedAt });
     }
-    return where;
+    return and.length ? { AND: and } : {};
   }
 
   async getTasks(

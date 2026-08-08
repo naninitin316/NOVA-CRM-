@@ -7,6 +7,12 @@ import { taskService } from '../services/task.service';
 import { getParam } from '../utils/params';
 import prisma from '../config/database';
 
+const getCurrentUser = async (req: AuthRequest) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user || !user.isActive) throw new AppError('User not found or inactive.', 401);
+  return user;
+};
+
 export const getTasks = asyncHandler(async (req: AuthRequest, res: Response) => {
   const filters: TaskFilters = {
     page: parseInt(req.query.page as string) || 1,
@@ -25,15 +31,15 @@ export const getTasks = asyncHandler(async (req: AuthRequest, res: Response) => 
     updatedTo: req.query.updatedTo as string,
   };
 
-  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  const effectiveCompany = req.user!.role === Role.SUPER_ADMIN ? filters.company : user?.company;
+  const user = await getCurrentUser(req);
+  const effectiveCompany = user.role === Role.SUPER_ADMIN ? filters.company : user.company;
 
   const result = await taskService.getTasks(
-    req.user!.role,
-    req.user!.id,
-    user?.department,
+    user.role,
+    user.id,
+    user.department,
     effectiveCompany,
-    req.user!.email,
+    user.email,
     filters
   );
 
@@ -41,8 +47,8 @@ export const getTasks = asyncHandler(async (req: AuthRequest, res: Response) => 
 });
 
 export const getTaskById = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  const task = await taskService.getTaskById(getParam(req, 'id'), req.user!.role, req.user!.id, user?.company, req.user!.email);
+  const user = await getCurrentUser(req);
+  const task = await taskService.getTaskById(getParam(req, 'id'), user.role, user.id, user.company, user.email);
   res.json({ success: true, data: task });
 });
 
@@ -63,17 +69,17 @@ export const createTask = asyncHandler(async (req: AuthRequest, res: Response) =
     remarks,
     dueDate,
   } = req.body;
-  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  const user = await getCurrentUser(req);
   const assignee = assignedTo ? await prisma.user.findUnique({ where: { id: assignedTo } }) : null;
-  const isContributor = req.user!.role === Role.CONTRIBUTOR;
+  const isContributor = user.role === Role.CONTRIBUTOR;
   if (isContributor && assignee) {
     if (!assignee.isActive) throw new AppError('Selected contributor is disabled.', 400);
     if (assignee.role !== Role.CONTRIBUTOR) throw new AppError('Contributors can only assign tasks to contributors.', 403);
-    if (assignee.company !== user?.company) throw new AppError('Selected contributor is outside your company.', 403);
+    if (assignee.company !== user.company) throw new AppError('Selected contributor is outside your company.', 403);
   }
 
-  const effectiveAssignedTo = isContributor ? assignedTo || req.user!.id : assignedTo || undefined;
-  const company = req.user!.role === Role.SUPER_ADMIN ? (req.body.company || assignee?.company || user?.company) : user?.company;
+  const effectiveAssignedTo = isContributor ? assignedTo || user.id : assignedTo || undefined;
+  const company = user.role === Role.SUPER_ADMIN ? (req.body.company || assignee?.company || user.company) : user.company;
 
   const task = await taskService.createTask({
     title,
@@ -87,7 +93,7 @@ export const createTask = asyncHandler(async (req: AuthRequest, res: Response) =
     status,
     priority,
     company,
-    department: isContributor ? assignee?.department || user?.department : department || assignee?.department,
+    department: isContributor ? assignee?.department || user.department : department || assignee?.department,
     remarks,
     dueDate: dueDate ? new Date(dueDate) : undefined,
     assignedTo: effectiveAssignedTo,
@@ -98,7 +104,7 @@ export const createTask = asyncHandler(async (req: AuthRequest, res: Response) =
 
 export const updateTask = asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = getParam(req, 'id');
-  const currentUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  const currentUser = await getCurrentUser(req);
   const {
     title,
     description,
@@ -135,45 +141,45 @@ export const updateTask = asyncHandler(async (req: AuthRequest, res: Response) =
   }
 
   let task;
-  if (req.user!.role === Role.MEMBER || req.user!.role === Role.CONTRIBUTOR || req.user!.role === Role.SALES_TEAM || req.user!.role === Role.HR_TEAM) {
+  if (currentUser.role === Role.MEMBER || currentUser.role === Role.CONTRIBUTOR || currentUser.role === Role.SALES_TEAM || currentUser.role === Role.HR_TEAM) {
     const allowed: Record<string, unknown> = {};
     if (status !== undefined) allowed.status = status;
-    if (priority !== undefined && (req.user!.role === Role.MEMBER || req.user!.role === Role.CONTRIBUTOR)) allowed.priority = priority;
+    if (priority !== undefined && (currentUser.role === Role.MEMBER || currentUser.role === Role.CONTRIBUTOR)) allowed.priority = priority;
     if (remarks !== undefined) allowed.remarks = remarks;
-    task = await taskService.updateTask(id, allowed, req.user!.id, req.user!.role, currentUser?.company, req.user!.email);
-  } else if (req.user!.role === Role.VIEWER) {
+    task = await taskService.updateTask(id, allowed, currentUser.id, currentUser.role, currentUser.company, currentUser.email);
+  } else if (currentUser.role === Role.VIEWER) {
     res.status(403).json({ success: false, error: 'Viewers cannot update tasks.' });
     return;
   } else {
-    task = await taskService.updateTask(id, updateData, req.user!.id, req.user!.role, currentUser?.company, req.user!.email);
+    task = await taskService.updateTask(id, updateData, currentUser.id, currentUser.role, currentUser.company, currentUser.email);
   }
 
   res.json({ success: true, data: task });
 });
 
 export const deleteTask = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  const result = await taskService.deleteTask(getParam(req, 'id'), req.user!.role, user?.company);
+  const user = await getCurrentUser(req);
+  const result = await taskService.deleteTask(getParam(req, 'id'), user.role, user.company);
   res.json({ success: true, data: result });
 });
 
 export const assignTask = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { assignedTo } = req.body;
-  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  const task = await taskService.assignTask(getParam(req, 'id'), assignedTo, req.user!.role, user?.company);
+  const user = await getCurrentUser(req);
+  const task = await taskService.assignTask(getParam(req, 'id'), assignedTo, user.role, user.company);
   res.json({ success: true, data: task });
 });
 
 export const addTaskComment = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { comment } = req.body;
-  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  const user = await getCurrentUser(req);
   const taskComment = await taskService.addTaskComment(
     getParam(req, 'id'),
-    req.user!.id,
-    req.user!.role,
+    user.id,
+    user.role,
     comment,
-    user?.company,
-    req.user!.email
+    user.company,
+    user.email
   );
 
   res.status(201).json({ success: true, data: taskComment });
@@ -181,16 +187,16 @@ export const addTaskComment = asyncHandler(async (req: AuthRequest, res: Respons
 
 export const createLeadTasks = asyncHandler(async (req: AuthRequest, res: Response) => {
   const bulkAssignableRoles: Role[] = [Role.SUPER_ADMIN, Role.ADMIN, Role.MEMBER];
-  if (!bulkAssignableRoles.includes(req.user!.role)) {
+  const user = await getCurrentUser(req);
+  if (!bulkAssignableRoles.includes(user.role)) {
     throw new AppError('Only admins and members can bulk assign lead tasks.', 403);
   }
 
   const { assignmentMode, department, assigneeIds, priority, dueDate, leads } = req.body;
-  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   const result = await taskService.createLeadTasks({
     assignmentMode,
     department,
-    company: req.user!.role === Role.SUPER_ADMIN ? req.body.company || user?.company : user?.company,
+    company: user.role === Role.SUPER_ADMIN ? req.body.company || user.company : user.company,
     assigneeIds,
     priority,
     dueDate: dueDate ? new Date(dueDate) : undefined,
