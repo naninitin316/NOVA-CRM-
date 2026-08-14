@@ -422,6 +422,19 @@ export class ProgressService {
       priority,
       count: tasks.filter((t) => t.priority === priority).length,
     }));
+    const dailyReportDate = dateTo ? this.toStartOfDay(dateTo) : new Date();
+    dailyReportDate.setHours(0, 0, 0, 0);
+    const dailyReportEnd = new Date(dailyReportDate);
+    dailyReportEnd.setHours(23, 59, 59, 999);
+    const dailyTasks = tasks.filter((task) => {
+      const createdAt = new Date(task.createdAt);
+      return createdAt >= dailyReportDate && createdAt <= dailyReportEnd;
+    });
+    const dailyReportDistribution = [
+      { status: 'PROCESSED', count: dailyTasks.filter((t) => t.status === TaskStatus.PROCESSED).length, color: '#10B981' },
+      { status: 'REJECTED', count: dailyTasks.filter((t) => t.status === TaskStatus.REJECTED).length, color: '#EF4444' },
+      { status: 'ON_HOLD', count: dailyTasks.filter((t) => t.status === TaskStatus.ON_HOLD).length, color: '#F59E0B' },
+    ];
 
     return {
       overview: {
@@ -436,6 +449,7 @@ export class ProgressService {
       departmentPerformance,
       teamPerformance,
       priorityDistribution,
+      dailyReportDistribution,
     };
   }
 

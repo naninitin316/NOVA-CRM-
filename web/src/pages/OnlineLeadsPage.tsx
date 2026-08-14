@@ -33,11 +33,11 @@ export function OnlineLeadsPage() {
   const [selectedAssignees, setSelectedAssignees] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<{ text: string; kind?: 'success' | 'error' } | null>(null);
 
-  const contributors = useMemo(
+  const assignableUsers = useMemo(
     () => users.filter((item: User) =>
       item.isActive &&
       item.company === effectiveCompany &&
-      ['CONTRIBUTOR', 'SALES_TEAM', 'HR_TEAM'].includes(item.role)
+      ['MEMBER', 'CONTRIBUTOR', 'SALES_TEAM', 'HR_TEAM'].includes(item.role)
     ),
     [effectiveCompany, users]
   );
@@ -48,7 +48,7 @@ export function OnlineLeadsPage() {
   const handleAssign = (lead: Task) => {
     const assignedTo = selectedAssignees[lead.id];
     if (!assignedTo) {
-      setToast({ text: 'Select a contributor first.', kind: 'error' });
+      setToast({ text: 'Select a member or contributor first.', kind: 'error' });
       return;
     }
 
@@ -91,7 +91,7 @@ export function OnlineLeadsPage() {
         <div className="page-header">
           <div>
             <h2 className="page-heading">Online Leads</h2>
-            <p className="page-desc">Website submissions arrive here as lead tasks. Assign them to contributors for follow-up.</p>
+            <p className="page-desc">Website submissions arrive here as lead tasks. Assign them to team members for follow-up.</p>
           </div>
           {isSuperAdmin && (
             <select className="form-input page-filter" value={effectiveCompany || ''} onChange={(event) => setCompany(event.target.value)}>
@@ -150,10 +150,10 @@ export function OnlineLeadsPage() {
                     value={selectedAssignees[lead.id] || lead.assignedTo || ''}
                     onChange={(event) => setSelectedAssignees((current) => ({ ...current, [lead.id]: event.target.value }))}
                   >
-                    <option value="">Select contributor</option>
-                    {contributors.map((contributor) => (
-                      <option key={contributor.id} value={contributor.id}>
-                        {contributor.name} · {contributor.department || 'Team'}
+                    <option value="">Select employee</option>
+                    {assignableUsers.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name} · {employee.department || 'Team'} · {employee.role.replace('_', ' ')}
                       </option>
                     ))}
                   </select>

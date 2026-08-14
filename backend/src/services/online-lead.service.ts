@@ -4,7 +4,7 @@ import { AppError } from '../utils/errorHandler';
 
 const ONLINE_LEAD_SOURCE = 'Online Lead';
 const ONLINE_LEAD_ROLES: Role[] = [Role.SUPER_ADMIN, Role.ADMIN];
-const ASSIGNABLE_ROLES: Role[] = [Role.CONTRIBUTOR, Role.SALES_TEAM, Role.HR_TEAM];
+const ASSIGNABLE_ROLES: Role[] = [Role.MEMBER, Role.CONTRIBUTOR, Role.SALES_TEAM, Role.HR_TEAM];
 
 export class OnlineLeadService {
   private normalizeCompanyKey(value?: string | null) {
@@ -15,6 +15,12 @@ export class OnlineLeadService {
     const trimmed = email?.trim();
     if (!trimmed) return undefined;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : undefined;
+  }
+
+  private normalizePhone(phone?: string | null) {
+    const digits = phone?.replace(/\D/g, '') || '';
+    if (!digits) return undefined;
+    return digits.length > 10 ? digits.slice(-10) : digits;
   }
 
   private async resolveCompanyName(company: string) {
@@ -54,6 +60,28 @@ export class OnlineLeadService {
 
     if (!customerName && !customerPhone && !customerEmail) {
       throw new AppError('Name, phone, or email is required.', 400);
+    }
+
+    const normalizedPhone = this.normalizePhone(customerPhone);
+    if (customerEmail || normalizedPhone) {
+      const existingLeads = await prisma.task.findMany({
+        where: {
+          company,
+          customerSource: ONLINE_LEAD_SOURCE,
+          OR: [
+            ...(customerEmail ? [{ customerEmail: { equals: customerEmail, mode: 'insensitive' as const } }] : []),
+            ...(normalizedPhone ? [{ customerPhone: { not: null } }] : []),
+          ],
+        },
+        include: {
+          assignee: { select: { id: true, name: true, email: true, department: true } },
+        },
+      });
+      const duplicate = existingLeads.find((lead) => (
+        (customerEmail && lead.customerEmail?.toLowerCase() === customerEmail.toLowerCase()) ||
+        (normalizedPhone && this.normalizePhone(lead.customerPhone) === normalizedPhone)
+      ));
+      if (duplicate) return duplicate;
     }
 
     const label = customerName || customerPhone || customerEmail || 'Website visitor';
@@ -117,11 +145,11 @@ export class OnlineLeadService {
       where: { id: assignedTo },
       select: { id: true, company: true, department: true, role: true, isActive: true },
     });
-    if (!assignee) throw new AppError('Contributor not found.', 404);
-    if (!assignee.isActive) throw new AppError('Contributor is disabled.', 400);
-    if (assignee.company !== task.company) throw new AppError('Contributor must belong to the same company.', 400);
+    if (!assignee) throw new AppError('Employee not found.', 404);
+    if (!assignee.isActive) throw new AppError('Employee is disabled.', 400);
+    if (assignee.company !== task.company) throw new AppError('Employee must belong to the same company.', 400);
     if (!ASSIGNABLE_ROLES.includes(assignee.role)) {
-      throw new AppError('Select a contributor for follow-up.', 400);
+      throw new AppError('Select a member or contributor for follow-up.', 400);
     }
 
     return prisma.task.update({

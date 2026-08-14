@@ -297,6 +297,18 @@ export const useOnlineLeads = (company?: string) =>
     refetchIntervalInBackground: true,
   });
 
+export const useOnlineLeadNotifications = (company?: string, enabled = true) =>
+  useQuery({
+    queryKey: ['online-leads-notification', company],
+    queryFn: async () => {
+      const { data } = await onlineLeadApi.getLeads(company);
+      return (data.data || []).filter((lead) => !lead.assignedTo);
+    },
+    enabled,
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+  });
+
 export const useCreateOnlineLead = () => {
   const qc = useQueryClient();
   return useMutation({

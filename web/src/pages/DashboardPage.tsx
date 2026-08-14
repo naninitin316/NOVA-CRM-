@@ -91,6 +91,11 @@ export function DashboardPage() {
     value: p.count,
     color: priorityColors[i],
   }));
+  const dailyReportData = (analytics?.dailyReportDistribution || []).map((item) => ({
+    name: item.status.replace('_', ' '),
+    value: item.count,
+    color: item.color,
+  }));
   const previewTasks = user?.role === 'VIEWER'
     ? (tasksData?.tasks?.length ? tasksData.tasks : companyDetail?.recentTasks || [])
     : (tasksData?.tasks || []);
@@ -263,10 +268,16 @@ export function DashboardPage() {
               </div>
 
               <div className="card dashboard-chart-card">
-                <h3 className="chart-card-title">Department Performance</h3>
-                {(analytics?.departmentPerformance || []).map((d) => (
-                  <ProgressBar key={d.department} label={d.department} percentage={d.percentage} color="var(--secondary)" />
-                ))}
+                <h3 className="chart-card-title">Daily Report</h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie data={dailyReportData} cx="50%" cy="50%" innerRadius={64} outerRadius={92} dataKey="value" paddingAngle={4}>
+                      {dailyReportData.map((entry, i) => <Cell key={i} fill={entry.color} stroke="none" />)}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
 

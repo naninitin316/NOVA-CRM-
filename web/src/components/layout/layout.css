@@ -121,6 +121,27 @@
   position: relative;
 }
 
+.sidebar-link-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-link-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--error);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 3px var(--bg-sidebar);
+}
+
 .sidebar-link:hover {
   background: linear-gradient(90deg, var(--surface-hover), color-mix(in srgb, var(--primary) 7%, transparent));
   color: var(--text);

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, BarChart3, Users, Building2, FileSpreadsheet, Settings, Diamond, LogOut, LifeBuoy, MousePointerClick } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { useCompany, useLogout } from '@/hooks/useApi';
+import { useCompany, useLogout, useOnlineLeadNotifications } from '@/hooks/useApi';
 import type { RootState } from '@/store';
 import { getBrandLabel } from '@/utils/brand';
 
@@ -49,6 +49,10 @@ export function Sidebar() {
   const brandLabel = getBrandLabel(user);
   const companyName = user?.role === 'SUPER_ADMIN' ? undefined : user?.company;
   const { data: companyDetail } = useCompany(companyName);
+  const { data: onlineLeadNotifications = [] } = useOnlineLeadNotifications(
+    user?.role === 'SUPER_ADMIN' ? undefined : user?.company || undefined,
+    showOnlineLeads
+  );
   const companyLogo = companyDetail?.logo;
   const showBrandIcon = user?.role !== 'SUPER_ADMIN' || Boolean(companyLogo);
 
@@ -82,7 +86,10 @@ export function Sidebar() {
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
           >
             <Icon size={20} />
-            {label}
+            <span className="sidebar-link-label">{label}</span>
+            {to === '/online-leads' && onlineLeadNotifications.length > 0 && (
+              <span className="sidebar-link-badge">{onlineLeadNotifications.length > 9 ? '9+' : onlineLeadNotifications.length}</span>
+            )}
           </NavLink>
         ))}
       </nav>

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, Clock3 } from 'lucide-react';
-import { useDismissReminder, useReminders } from '@/hooks/useApi';
+import { Bell, CheckCircle2, Clock3, MousePointerClick } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { useDismissReminder, useOnlineLeadNotifications, useReminders } from '@/hooks/useApi';
+import type { RootState } from '@/store';
 import type { TaskReminder } from '@/types';
 
 function formatReminderTime(value: string) {
@@ -15,10 +17,17 @@ function formatReminderTime(value: string) {
 
 export function ReminderBell() {
   const navigate = useNavigate();
+  const user = useSelector((s: RootState) => s.auth.user);
+  const canUseOnlineLeads = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const { data: reminders = [] } = useReminders(true);
+  const { data: onlineLeads = [] } = useOnlineLeadNotifications(
+    user?.role === 'SUPER_ADMIN' ? undefined : user?.company || undefined,
+    canUseOnlineLeads
+  );
   const dismissReminder = useDismissReminder();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const notificationCount = reminders.length + onlineLeads.length;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -34,27 +43,44 @@ export function ReminderBell() {
     navigate(`/tasks/${reminder.taskId}`);
   };
 
+  const openOnlineLeads = () => {
+    setOpen(false);
+    navigate('/online-leads');
+  };
+
   return (
     <div className="reminder-bell" ref={ref}>
       <button
         type="button"
-        className={`reminder-bell-btn ${reminders.length ? 'has-reminders' : ''}`}
-        aria-label={reminders.length ? `${reminders.length} task reminder${reminders.length === 1 ? '' : 's'}` : 'Task reminders'}
-        title="Task reminders"
+        className={`reminder-bell-btn ${notificationCount ? 'has-reminders' : ''}`}
+        aria-label={notificationCount ? `${notificationCount} notification${notificationCount === 1 ? '' : 's'}` : 'Notifications'}
+        title="Notifications"
         onClick={() => setOpen((value) => !value)}
       >
         <Bell size={18} />
-        {reminders.length > 0 && <span>{reminders.length > 9 ? '9+' : reminders.length}</span>}
+        {notificationCount > 0 && <span>{notificationCount > 9 ? '9+' : notificationCount}</span>}
       </button>
 
       {open && (
         <div className="reminder-menu">
           <div className="reminder-menu-head">
-            <strong>Task reminders</strong>
-            <span>{reminders.length} due</span>
+            <strong>Notifications</strong>
+            <span>{notificationCount} new</span>
           </div>
           <div className="reminder-list">
-            {reminders.length ? reminders.map((reminder) => (
+            {onlineLeads.map((lead) => (
+              <div key={lead.id} className="reminder-item">
+                <button type="button" className="reminder-item-main" onClick={openOnlineLeads}>
+                  <div className="reminder-item-icon"><MousePointerClick size={15} /></div>
+                  <div>
+                    <strong>{lead.customerName || lead.customerPhone || lead.customerEmail || 'New online lead'}</strong>
+                    <span>{lead.projectName || lead.customerCompany || 'Website submission'}</span>
+                    <small>{formatReminderTime(lead.createdAt)}</small>
+                  </div>
+                </button>
+              </div>
+            ))}
+            {reminders.map((reminder) => (
               <div key={reminder.id} className="reminder-item">
                 <button type="button" className="reminder-item-main" onClick={() => openTask(reminder)}>
                   <div className="reminder-item-icon"><Clock3 size={15} /></div>
@@ -73,10 +99,11 @@ export function ReminderBell() {
                   <CheckCircle2 size={16} />
                 </button>
               </div>
-            )) : (
+            ))}
+            {!notificationCount && (
               <div className="reminder-empty">
                 <Bell size={18} />
-                <p>No reminders due right now.</p>
+                <p>No notifications right now.</p>
               </div>
             )}
           </div>

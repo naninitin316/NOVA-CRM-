@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { FileSpreadsheet, FileDown } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { TaskTable } from '@/components/tasks/TaskTable';
-import { useCompanies, useCompany, useTasks } from '@/hooks/useApi';
+import { useCompanies, useCompany, useTasks, useUsers } from '@/hooks/useApi';
 import type { RootState } from '@/store';
 import type { Task, TaskFilters } from '@/types';
 
@@ -69,6 +69,7 @@ export function ReportsPage() {
   const [scope, setScope] = useState<'day' | 'all'>('all');
   const [dayViewActive, setDayViewActive] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(user?.company || '');
+  const [selectedEmployee, setSelectedEmployee] = useState('');
   const [reportDateFrom, setReportDateFrom] = useState('');
   const [reportDateTo, setReportDateTo] = useState('');
 
@@ -77,6 +78,7 @@ export function ReportsPage() {
   }, [today]);
 
   const { data: companies } = useCompanies();
+  const { data: users = [] } = useUsers(isAdminReport);
   const reportCompany = isSuperAdmin ? selectedCompany || companies?.[0]?.name : user?.company;
   const { data: companyDetail } = useCompany(user?.company);
   const range = useMemo(() => dayRange(selectedDate), [selectedDate]);
@@ -127,6 +129,15 @@ export function ReportsPage() {
     const updatedAt = task.updatedAt ? new Date(task.updatedAt).getTime() : createdAt;
     return task.status === 'PROCESSED' || Math.abs(updatedAt - createdAt) > 1000;
   });
+  const employeeOptions = users.filter((item) => (
+    item.isActive &&
+    item.company === reportCompany &&
+    ['MEMBER', 'CONTRIBUTOR', 'SALES_TEAM', 'HR_TEAM'].includes(item.role)
+  ));
+  const selectedEmployeeTasks = selectedEmployee
+    ? tasks.filter((task) => task.assignedTo === selectedEmployee || task.assignee?.id === selectedEmployee)
+    : [];
+  const selectedEmployeeUser = employeeOptions.find((item) => item.id === selectedEmployee);
 
   const buildExportRows = (items: Task[]) => items.map((task) => ({
     Date: new Date(task.createdAt).toLocaleDateString(),
@@ -281,6 +292,10 @@ export function ReportsPage() {
               <div className="stat-label">Entire tasks</div>
               <div className="stat-value">{tasks.length}</div>
             </div>
+            <div className="card stat-card">
+              <div className="stat-label">Employee report</div>
+              <div className="stat-value">{selectedEmployeeTasks.length}</div>
+            </div>
           </div>
 
           <div className="task-edit-grid" style={{ marginBottom: 16 }}>
@@ -328,6 +343,48 @@ export function ReportsPage() {
                   className="btn btn-primary btn-sm"
                   onClick={() => downloadExcel(tasks, `${safeCompanyName}-entire-tasks`)}
                   disabled={!tasks.length}
+                >
+                  <FileSpreadsheet size={16} /> Excel
+                </button>
+              </div>
+            </section>
+
+            <section className="card task-detail-card">
+              <div className="section-header">
+                <div>
+                  <h3 className="section-title">Employee Report</h3>
+                  <span className="task-comments-sub">
+                    {selectedEmployeeUser ? `${selectedEmployeeUser.name} · ${selectedEmployeeTasks.length} tasks` : 'Select an employee'}
+                  </span>
+                </div>
+              </div>
+              <div className="report-day-picker" style={{ marginBottom: 12 }}>
+                <span>Employee</span>
+                <select
+                  className="form-input"
+                  value={selectedEmployee}
+                  onChange={(event) => setSelectedEmployee(event.target.value)}
+                >
+                  <option value="">Select employee</option>
+                  {employeeOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name} · {employee.department || 'Team'} · {employee.role.replace('_', ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="task-edit-actions" style={{ justifyContent: 'flex-start' }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => downloadCsv(selectedEmployeeTasks, `${safeCompanyName}-${(selectedEmployeeUser?.name || 'employee').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-tasks`)}
+                  disabled={!selectedEmployeeTasks.length}
+                >
+                  <FileDown size={16} /> CSV
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => downloadExcel(selectedEmployeeTasks, `${safeCompanyName}-${(selectedEmployeeUser?.name || 'employee').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-tasks`)}
+                  disabled={!selectedEmployeeTasks.length}
                 >
                   <FileSpreadsheet size={16} /> Excel
                 </button>

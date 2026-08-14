@@ -193,6 +193,7 @@ export interface Analytics {
     percentage: number;
   }[];
   priorityDistribution: { priority: string; count: number }[];
+  dailyReportDistribution: { status: string; count: number; color: string }[];
 }
 
 export interface LoginCredentials {
