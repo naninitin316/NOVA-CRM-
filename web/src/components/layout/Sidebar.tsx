@@ -51,7 +51,8 @@ export function Sidebar() {
   const { data: companyDetail } = useCompany(companyName);
   const { data: onlineLeadNotifications = [] } = useOnlineLeadNotifications(
     user?.role === 'SUPER_ADMIN' ? undefined : user?.company || undefined,
-    showOnlineLeads
+    showOnlineLeads,
+    user?.id
   );
   const companyLogo = companyDetail?.logo;
   const showBrandIcon = user?.role !== 'SUPER_ADMIN' || Boolean(companyLogo);

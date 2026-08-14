@@ -22,7 +22,8 @@ export function ReminderBell() {
   const { data: reminders = [] } = useReminders(true);
   const { data: onlineLeads = [] } = useOnlineLeadNotifications(
     user?.role === 'SUPER_ADMIN' ? undefined : user?.company || undefined,
-    canUseOnlineLeads
+    canUseOnlineLeads,
+    user?.id
   );
   const dismissReminder = useDismissReminder();
   const [open, setOpen] = useState(false);

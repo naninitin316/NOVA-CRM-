@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDispatch } from 'react-redux';
 import { authApi, taskApi, userApi, companyApi, progressApi, supportApi, onlineLeadApi, reminderApi } from '../api';
@@ -6,6 +7,8 @@ import { tokenStorage } from '../api/client';
 import type { BulkLeadTaskRequest, CompanyCreateInput, LoginCredentials, TaskFilters, TaskReminderCreateInput } from '../types';
 import type { OnlineLeadInput } from '../types';
 import type { SupportTicketCreateInput, SupportTicketReplyInput, SupportTicketUpdateInput } from '../types';
+import { readSeenOnlineLeadIds } from '@/utils/onlineLeadSeen';
+import { ONLINE_LEADS_SEEN_EVENT } from '@/utils/onlineLeadSeen';
 
 export const useLogin = () => {
   const dispatch = useDispatch();
@@ -297,17 +300,33 @@ export const useOnlineLeads = (company?: string) =>
     refetchIntervalInBackground: true,
   });
 
-export const useOnlineLeadNotifications = (company?: string, enabled = true) =>
-  useQuery({
-    queryKey: ['online-leads-notification', company],
+export const useOnlineLeadNotifications = (company?: string, enabled = true, userId?: string) => {
+  const query = useQuery({
+    queryKey: ['online-leads-notification', company, userId],
     queryFn: async () => {
       const { data } = await onlineLeadApi.getLeads(company);
-      return (data.data || []).filter((lead) => !lead.assignedTo);
+      const seenIds = readSeenOnlineLeadIds(userId, company);
+      return (data.data || []).filter((lead) => !lead.assignedTo && !seenIds.has(lead.id));
     },
     enabled,
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
   });
+
+  useEffect(() => {
+    const refetch = () => {
+      void query.refetch();
+    };
+    window.addEventListener(ONLINE_LEADS_SEEN_EVENT, refetch);
+    window.addEventListener('storage', refetch);
+    return () => {
+      window.removeEventListener(ONLINE_LEADS_SEEN_EVENT, refetch);
+      window.removeEventListener('storage', refetch);
+    };
+  }, [query]);
+
+  return query;
+};
 
 export const useCreateOnlineLead = () => {
   const qc = useQueryClient();

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { isAxiosError } from 'axios';
@@ -8,6 +8,7 @@ import { Toast } from '@/components/ui/Toast';
 import { useAssignOnlineLead, useCompanies, useOnlineLeads, useUsers } from '@/hooks/useApi';
 import type { RootState } from '@/store';
 import type { Task, User } from '@/types';
+import { markOnlineLeadsSeen } from '@/utils/onlineLeadSeen';
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString(undefined, {
@@ -44,6 +45,11 @@ export function OnlineLeadsPage() {
 
   const unassignedCount = leads.filter((lead) => !lead.assignedTo).length;
   const assignedCount = leads.length - unassignedCount;
+
+  useEffect(() => {
+    if (!canUseOnlineLeads || isLoading || !leads.length) return;
+    markOnlineLeadsSeen(leads, user?.id, effectiveCompany);
+  }, [canUseOnlineLeads, effectiveCompany, isLoading, leads, user?.id]);
 
   const handleAssign = (lead: Task) => {
     const assignedTo = selectedAssignees[lead.id];
