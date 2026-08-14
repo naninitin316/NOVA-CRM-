@@ -7,10 +7,31 @@ const ONLINE_LEAD_ROLES: Role[] = [Role.SUPER_ADMIN, Role.ADMIN];
 const ASSIGNABLE_ROLES: Role[] = [Role.CONTRIBUTOR, Role.SALES_TEAM, Role.HR_TEAM];
 
 export class OnlineLeadService {
+  private normalizeCompanyKey(value?: string | null) {
+    return value?.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+  }
+
   private cleanEmail(email?: string) {
     const trimmed = email?.trim();
     if (!trimmed) return undefined;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : undefined;
+  }
+
+  private async resolveCompanyName(company: string) {
+    const trimmed = company.trim();
+    if (!trimmed) throw new AppError('Company is required.', 400);
+
+    const exactCompany = await prisma.company.findFirst({
+      where: { name: { equals: trimmed, mode: 'insensitive' } },
+      select: { name: true },
+    });
+    if (exactCompany) return exactCompany.name;
+
+    const companyKey = this.normalizeCompanyKey(trimmed);
+    const companies = await prisma.company.findMany({ select: { name: true } });
+    const matchedCompany = companies.find((item) => this.normalizeCompanyKey(item.name) === companyKey);
+    if (!matchedCompany) throw new AppError('Company not registered.', 400);
+    return matchedCompany.name;
   }
 
   async createOnlineLead(data: {
@@ -22,9 +43,7 @@ export class OnlineLeadService {
     message?: string;
     source?: string;
   }) {
-    const company = data.company.trim();
-    const companyExists = await prisma.company.findUnique({ where: { name: company } });
-    if (!companyExists) throw new AppError('Company not registered.', 400);
+    const company = await this.resolveCompanyName(data.company);
 
     const customerName = data.name?.trim();
     const customerPhone = data.phone?.trim();
@@ -47,6 +66,7 @@ export class OnlineLeadService {
         customerPhone,
         customerEmail,
         customerCompany: project,
+        projectName: project,
         customerSource: ONLINE_LEAD_SOURCE,
         company,
         department: 'Sales',

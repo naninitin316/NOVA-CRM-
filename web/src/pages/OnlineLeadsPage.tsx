@@ -135,7 +135,7 @@ export function OnlineLeadsPage() {
                   <div>
                     <div className="online-lead-title">{lead.customerName || lead.customerPhone || lead.customerEmail || 'Website visitor'}</div>
                     <div className="online-lead-sub">
-                      {[lead.customerPhone, lead.customerEmail, lead.customerCompany, lead.department].filter(Boolean).join(' · ')}
+                      {[lead.customerPhone, lead.customerEmail, lead.projectName || lead.customerCompany, lead.department].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                   <div className="online-lead-meta">

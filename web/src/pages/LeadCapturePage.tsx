@@ -26,7 +26,8 @@ const initialForm: LeadForm = {
 export function LeadCapturePage() {
   const [params] = useSearchParams();
   const companyFromUrl = useMemo(() => params.get('company') || params.get('c') || '', [params]);
-  const [form, setForm] = useState<LeadForm>({ ...initialForm, company: companyFromUrl });
+  const projectFromUrl = useMemo(() => params.get('project') || params.get('p') || '', [params]);
+  const [form, setForm] = useState<LeadForm>({ ...initialForm, company: companyFromUrl, project: projectFromUrl });
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const createLead = useCreateOnlineLead();
