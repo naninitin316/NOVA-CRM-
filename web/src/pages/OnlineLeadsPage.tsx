@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { isAxiosError } from 'axios';
@@ -45,6 +45,22 @@ export function OnlineLeadsPage() {
 
   const unassignedCount = leads.filter((lead) => !lead.assignedTo).length;
   const assignedCount = leads.length - unassignedCount;
+  const groupedLeads = useMemo(() => {
+    const groups = new Map<string, Task[]>();
+
+    leads.forEach((lead) => {
+      const project = lead.projectName || lead.customerCompany || 'Website submissions';
+      const existing = groups.get(project) || [];
+      existing.push(lead);
+      groups.set(project, existing);
+    });
+
+    return Array.from(groups.entries()).map(([project, items]) => ({
+      project,
+      leads: items,
+      unassigned: items.filter((lead) => !lead.assignedTo).length,
+    }));
+  }, [leads]);
 
   useEffect(() => {
     if (!canUseOnlineLeads || isLoading || !leads.length) return;
@@ -135,44 +151,56 @@ export function OnlineLeadsPage() {
           </div>
 
           <div className="online-lead-list">
-            {leads.map((lead) => (
-              <div key={lead.id} className="online-lead-row">
-                <button type="button" className="online-lead-main" onClick={() => navigate(`/tasks/${lead.id}`)}>
+            {groupedLeads.map((group) => (
+              <Fragment key={group.project}>
+                <div className="online-lead-group">
                   <div>
-                    <div className="online-lead-title">{lead.customerName || lead.customerPhone || lead.customerEmail || 'Website visitor'}</div>
-                    <div className="online-lead-sub">
-                      {[lead.customerPhone, lead.customerEmail, lead.projectName || lead.customerCompany, lead.department].filter(Boolean).join(' · ')}
+                    <h4>{group.project}</h4>
+                    <span>{group.leads.length} lead{group.leads.length === 1 ? '' : 's'}</span>
+                  </div>
+                  <strong>{group.unassigned} unassigned</strong>
+                </div>
+
+                {group.leads.map((lead) => (
+                  <div key={lead.id} className="online-lead-row">
+                    <button type="button" className="online-lead-main" onClick={() => navigate(`/tasks/${lead.id}`)}>
+                      <div>
+                        <div className="online-lead-title">{lead.customerName || lead.customerPhone || lead.customerEmail || 'Website visitor'}</div>
+                        <div className="online-lead-sub">
+                          {[lead.customerPhone, lead.customerEmail, lead.projectName || lead.customerCompany, lead.department].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <div className="online-lead-meta">
+                        <span>{formatDateTime(lead.createdAt)}</span>
+                        <strong>{lead.assignee?.name || 'Unassigned'}</strong>
+                      </div>
+                    </button>
+
+                    <div className="online-lead-actions">
+                      <select
+                        className="form-input"
+                        value={selectedAssignees[lead.id] || lead.assignedTo || ''}
+                        onChange={(event) => setSelectedAssignees((current) => ({ ...current, [lead.id]: event.target.value }))}
+                      >
+                        <option value="">Select employee</option>
+                        {assignableUsers.map((employee) => (
+                          <option key={employee.id} value={employee.id}>
+                            {employee.name} · {employee.department || 'Team'} · {employee.role.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        type="button"
+                        disabled={assignLead.isPending}
+                        onClick={() => handleAssign(lead)}
+                      >
+                        Assign
+                      </button>
                     </div>
                   </div>
-                  <div className="online-lead-meta">
-                    <span>{formatDateTime(lead.createdAt)}</span>
-                    <strong>{lead.assignee?.name || 'Unassigned'}</strong>
-                  </div>
-                </button>
-
-                <div className="online-lead-actions">
-                  <select
-                    className="form-input"
-                    value={selectedAssignees[lead.id] || lead.assignedTo || ''}
-                    onChange={(event) => setSelectedAssignees((current) => ({ ...current, [lead.id]: event.target.value }))}
-                  >
-                    <option value="">Select employee</option>
-                    {assignableUsers.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name} · {employee.department || 'Team'} · {employee.role.replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    type="button"
-                    disabled={assignLead.isPending}
-                    onClick={() => handleAssign(lead)}
-                  >
-                    Assign
-                  </button>
-                </div>
-              </div>
+                ))}
+              </Fragment>
             ))}
             {!leads.length && (
               <div className="empty-state card" style={{ margin: 0 }}>

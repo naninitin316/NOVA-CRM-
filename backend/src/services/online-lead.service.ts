@@ -68,6 +68,7 @@ export class OnlineLeadService {
         where: {
           company,
           customerSource: ONLINE_LEAD_SOURCE,
+          ...(project ? { projectName: { equals: project, mode: 'insensitive' as const } } : {}),
           OR: [
             ...(customerEmail ? [{ customerEmail: { equals: customerEmail, mode: 'insensitive' as const } }] : []),
             ...(normalizedPhone ? [{ customerPhone: { not: null } }] : []),
