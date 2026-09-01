@@ -2963,6 +2963,51 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.5; }
   gap: 12px;
 }
 
+.online-lead-project-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.online-lead-project-filter button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.online-lead-project-filter button:hover,
+.online-lead-project-filter button.active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+  color: var(--text);
+}
+
+.online-lead-project-filter span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.online-lead-project-filter strong {
+  min-width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+  font-size: 12px;
+}
+
 .online-lead-group {
   display: flex;
   align-items: center;

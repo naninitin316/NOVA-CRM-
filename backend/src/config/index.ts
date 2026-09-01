@@ -3,11 +3,27 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const isProduction = process.env.NODE_ENV === 'production';
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:8081')
+const defaultCorsOrigins = [
+  'http://localhost:8081',
+  'http://localhost:19006',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://crm.nrinnovium.online',
+  'https://indhuinfra.com',
+  'https://www.indhuinfra.com',
+  'https://signaturevillas.online',
+  'https://www.signaturevillas.online',
+  'https://visionarycity.in',
+  'https://www.visionarycity.in',
+];
+const corsOrigins = Array.from(new Set([
+  ...defaultCorsOrigins,
+  ...(process.env.CORS_ORIGIN || '')
   .replace(/^['"]|['"]$/g, '')
   .split(',')
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean),
+]));
 
 if (isProduction) {
   const missing = ['DATABASE_URL', 'JWT_SECRET', 'CORS_ORIGIN', 'APP_URL'].filter((key) => !process.env[key]?.trim());

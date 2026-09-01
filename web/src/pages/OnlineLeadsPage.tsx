@@ -10,6 +10,13 @@ import type { RootState } from '@/store';
 import type { Task, User } from '@/types';
 import { markOnlineLeadsSeen } from '@/utils/onlineLeadSeen';
 
+const INDHU_COMPANY_KEY = 'indhuinfra';
+const PROJECT_FILTERS = [
+  { value: 'all', label: 'All Online Leads' },
+  { value: 'signaturevillas', label: 'Signature Villas' },
+  { value: 'visionary-city', label: 'Visionary City' },
+];
+
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString(undefined, {
     day: '2-digit',
@@ -20,6 +27,19 @@ function formatDateTime(value: string) {
   });
 }
 
+function normalizeKey(value?: string | null) {
+  return value?.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+}
+
+function projectKey(lead: Task) {
+  const project = normalizeKey(lead.projectName || lead.customerCompany);
+  const source = normalizeKey(lead.remarks || lead.customerSource || lead.description);
+
+  if (project.includes('signature') || source.includes('signaturevillas')) return 'signaturevillas';
+  if (project.includes('visionary') || source.includes('visionarycity')) return 'visionary-city';
+  return 'other';
+}
+
 export function OnlineLeadsPage() {
   const navigate = useNavigate();
   const user = useSelector((s: RootState) => s.auth.user);
@@ -27,10 +47,12 @@ export function OnlineLeadsPage() {
   const canUseOnlineLeads = isSuperAdmin || user?.role === 'ADMIN';
   const { data: companies } = useCompanies();
   const [company, setCompany] = useState(user?.company || '');
-  const effectiveCompany = isSuperAdmin ? company || companies?.[0]?.name : user?.company;
+  const defaultCompany = companies?.find((item) => normalizeKey(item.name) === INDHU_COMPANY_KEY)?.name || companies?.find((item) => item.name !== 'Platform')?.name;
+  const effectiveCompany = isSuperAdmin ? company || defaultCompany : user?.company;
   const { data: leads = [], isLoading } = useOnlineLeads(effectiveCompany);
   const { data: users = [] } = useUsers(canUseOnlineLeads);
   const assignLead = useAssignOnlineLead();
+  const [projectFilter, setProjectFilter] = useState('all');
   const [selectedAssignees, setSelectedAssignees] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<{ text: string; kind?: 'success' | 'error' } | null>(null);
 
@@ -43,12 +65,21 @@ export function OnlineLeadsPage() {
     [effectiveCompany, users]
   );
 
-  const unassignedCount = leads.filter((lead) => !lead.assignedTo).length;
-  const assignedCount = leads.length - unassignedCount;
+  const projectCounts = useMemo(() => ({
+    all: leads.length,
+    signaturevillas: leads.filter((lead) => projectKey(lead) === 'signaturevillas').length,
+    'visionary-city': leads.filter((lead) => projectKey(lead) === 'visionary-city').length,
+  }), [leads]);
+  const filteredLeads = useMemo(
+    () => projectFilter === 'all' ? leads : leads.filter((lead) => projectKey(lead) === projectFilter),
+    [leads, projectFilter]
+  );
+  const unassignedCount = filteredLeads.filter((lead) => !lead.assignedTo).length;
+  const assignedCount = filteredLeads.length - unassignedCount;
   const groupedLeads = useMemo(() => {
     const groups = new Map<string, Task[]>();
 
-    leads.forEach((lead) => {
+    filteredLeads.forEach((lead) => {
       const project = lead.projectName || lead.customerCompany || 'Website submissions';
       const existing = groups.get(project) || [];
       existing.push(lead);
@@ -60,7 +91,7 @@ export function OnlineLeadsPage() {
       leads: items,
       unassigned: items.filter((lead) => !lead.assignedTo).length,
     }));
-  }, [leads]);
+  }, [filteredLeads]);
 
   useEffect(() => {
     if (!canUseOnlineLeads || isLoading || !leads.length) return;
@@ -124,11 +155,27 @@ export function OnlineLeadsPage() {
           )}
         </div>
 
+        {normalizeKey(effectiveCompany) === INDHU_COMPANY_KEY && (
+          <div className="online-lead-project-filter" aria-label="Filter Indhu Infra online leads by project">
+            {PROJECT_FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                className={projectFilter === item.value ? 'active' : ''}
+                onClick={() => setProjectFilter(item.value)}
+              >
+                <span>{item.label}</span>
+                <strong>{projectCounts[item.value as keyof typeof projectCounts] || 0}</strong>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="stats-grid" style={{ marginBottom: 16 }}>
           <div className="card stat-card">
             <MousePointerClick size={20} color="var(--primary)" />
             <div className="stat-label">Online leads</div>
-            <div className="stat-value">{leads.length}</div>
+            <div className="stat-value">{filteredLeads.length}</div>
           </div>
           <div className="card stat-card">
             <UserCheck size={20} color="var(--warning)" />
@@ -146,7 +193,7 @@ export function OnlineLeadsPage() {
           <div className="section-header">
             <div>
               <h3 className="section-title" style={{ marginBottom: 0 }}>Lead Queue</h3>
-              <span className="task-comments-sub">{isLoading ? 'Loading...' : `${leads.length} website submissions`}</span>
+              <span className="task-comments-sub">{isLoading ? 'Loading...' : `${filteredLeads.length} website submissions`}</span>
             </div>
           </div>
 
@@ -202,10 +249,10 @@ export function OnlineLeadsPage() {
                 ))}
               </Fragment>
             ))}
-            {!leads.length && (
+            {!filteredLeads.length && (
               <div className="empty-state card" style={{ margin: 0 }}>
                 <h3>No online leads yet</h3>
-                <p>Website form submissions will appear here automatically.</p>
+                <p>Website form submissions for this selection will appear here automatically.</p>
               </div>
             )}
           </div>
