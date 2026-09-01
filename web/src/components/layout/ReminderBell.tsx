@@ -4,7 +4,25 @@ import { Bell, CheckCircle2, Clock3, MousePointerClick } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { useDismissReminder, useOnlineLeadNotifications, useReminders } from '@/hooks/useApi';
 import type { RootState } from '@/store';
-import type { TaskReminder } from '@/types';
+import type { Task, TaskReminder } from '@/types';
+
+function normalizeKey(value?: string | null) {
+  return value?.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+}
+
+function onlineLeadProject(lead: Task) {
+  const project = lead.projectName || lead.customerCompany || '';
+  const source = normalizeKey(lead.remarks || lead.customerSource || lead.description);
+  const key = normalizeKey(project);
+
+  if (key.includes('signature') || source.includes('signaturevillas')) {
+    return { label: 'Signature Villas', filter: 'signaturevillas' };
+  }
+  if (key.includes('visionary') || source.includes('visionarycity')) {
+    return { label: 'Visionary City', filter: 'visionary-city' };
+  }
+  return { label: project || 'Website submission', filter: 'all' };
+}
 
 function formatReminderTime(value: string) {
   return new Date(value).toLocaleString(undefined, {
@@ -44,9 +62,10 @@ export function ReminderBell() {
     navigate(`/tasks/${reminder.taskId}`);
   };
 
-  const openOnlineLeads = () => {
+  const openOnlineLeads = (lead?: Task) => {
     setOpen(false);
-    navigate('/online-leads');
+    const project = lead ? onlineLeadProject(lead).filter : 'all';
+    navigate(project === 'all' ? '/online-leads' : `/online-leads?project=${project}`);
   };
 
   return (
@@ -71,11 +90,11 @@ export function ReminderBell() {
           <div className="reminder-list">
             {onlineLeads.map((lead) => (
               <div key={lead.id} className="reminder-item">
-                <button type="button" className="reminder-item-main" onClick={openOnlineLeads}>
+                <button type="button" className="reminder-item-main" onClick={() => openOnlineLeads(lead)}>
                   <div className="reminder-item-icon"><MousePointerClick size={15} /></div>
                   <div>
                     <strong>{lead.customerName || lead.customerPhone || lead.customerEmail || 'New online lead'}</strong>
-                    <span>{lead.projectName || lead.customerCompany || 'Website submission'}</span>
+                    <span>Online lead · {onlineLeadProject(lead).label}</span>
                     <small>{formatReminderTime(lead.createdAt)}</small>
                   </div>
                 </button>

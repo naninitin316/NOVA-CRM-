@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { isAxiosError } from 'axios';
 import { CheckCircle2, MousePointerClick, UserCheck } from 'lucide-react';
@@ -42,6 +42,7 @@ function projectKey(lead: Task) {
 
 export function OnlineLeadsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useSelector((s: RootState) => s.auth.user);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const canUseOnlineLeads = isSuperAdmin || user?.role === 'ADMIN';
@@ -52,7 +53,10 @@ export function OnlineLeadsPage() {
   const { data: leads = [], isLoading } = useOnlineLeads(effectiveCompany);
   const { data: users = [] } = useUsers(canUseOnlineLeads);
   const assignLead = useAssignOnlineLead();
-  const [projectFilter, setProjectFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState(() => {
+    const project = searchParams.get('project') || 'all';
+    return PROJECT_FILTERS.some((item) => item.value === project) ? project : 'all';
+  });
   const [selectedAssignees, setSelectedAssignees] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<{ text: string; kind?: 'success' | 'error' } | null>(null);
 
@@ -89,7 +93,6 @@ export function OnlineLeadsPage() {
     return Array.from(groups.entries()).map(([project, items]) => ({
       project,
       leads: items,
-      unassigned: items.filter((lead) => !lead.assignedTo).length,
     }));
   }, [filteredLeads]);
 
@@ -97,6 +100,12 @@ export function OnlineLeadsPage() {
     if (!canUseOnlineLeads || isLoading || !leads.length) return;
     markOnlineLeadsSeen(leads, user?.id, effectiveCompany);
   }, [canUseOnlineLeads, effectiveCompany, isLoading, leads, user?.id]);
+
+  const selectProjectFilter = (value: string) => {
+    setProjectFilter(value);
+    if (value === 'all') setSearchParams({});
+    else setSearchParams({ project: value });
+  };
 
   const handleAssign = (lead: Task) => {
     const assignedTo = selectedAssignees[lead.id];
@@ -162,7 +171,7 @@ export function OnlineLeadsPage() {
                 key={item.value}
                 type="button"
                 className={projectFilter === item.value ? 'active' : ''}
-                onClick={() => setProjectFilter(item.value)}
+                onClick={() => selectProjectFilter(item.value)}
               >
                 <span>{item.label}</span>
                 <strong>{projectCounts[item.value as keyof typeof projectCounts] || 0}</strong>
@@ -205,7 +214,6 @@ export function OnlineLeadsPage() {
                     <h4>{group.project}</h4>
                     <span>{group.leads.length} lead{group.leads.length === 1 ? '' : 's'}</span>
                   </div>
-                  <strong>{group.unassigned} unassigned</strong>
                 </div>
 
                 {group.leads.map((lead) => (
