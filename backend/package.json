@@ -11,6 +11,7 @@
     "deploy:bootstrap": "node dist/deploy/index.js",
     "db:bootstrap": "tsx src/deploy/index.ts",
     "mail:test": "tsx src/scripts/test-mail.ts",
+    "meta:sync": "tsx src/scripts/sync-meta-leads.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

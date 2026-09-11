@@ -16,6 +16,15 @@ const PROJECT_FILTERS = [
   { value: 'signaturevillas', label: 'Signature Villas' },
   { value: 'visionary-city', label: 'Visionary City' },
 ];
+const KNOWN_PROJECT_FILTERS: Record<string, Array<{ value: string; label: string }>> = {
+  indhuinfra: [
+    { value: 'signaturevillas', label: 'Signature Villas' },
+    { value: 'visionary-city', label: 'Visionary City' },
+  ],
+  komuinfra: [
+    { value: 'shades-of-green', label: 'Shades of Green' },
+  ],
+};
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString(undefined, {
@@ -38,6 +47,8 @@ function projectKey(lead: Task) {
   if (project.includes('signature') || source.includes('signaturevillas')) return 'signaturevillas';
   if (project.includes('visionary') || source.includes('visionarycity')) return 'visionary-city';
   return 'other';
+  if (project.includes('shades') || source.includes('shadesofgreen')) return 'shades-of-green';
+  return project || 'other';
 }
 
 export function OnlineLeadsPage() {
@@ -49,16 +60,40 @@ export function OnlineLeadsPage() {
   const { data: companies } = useCompanies();
   const [company, setCompany] = useState(user?.company || '');
   const defaultCompany = companies?.find((item) => normalizeKey(item.name) === INDHU_COMPANY_KEY)?.name || companies?.find((item) => item.name !== 'Platform')?.name;
+  const defaultCompany = companies?.find((item) => normalizeKey(item.name) === 'komuinfra')?.name || companies?.find((item) => normalizeKey(item.name) === 'indhuinfra')?.name || companies?.find((item) => item.name !== 'Platform')?.name;
   const effectiveCompany = isSuperAdmin ? company || defaultCompany : user?.company;
   const { data: leads = [], isLoading } = useOnlineLeads(effectiveCompany);
   const { data: users = [] } = useUsers(canUseOnlineLeads);
   const assignLead = useAssignOnlineLead();
+  const companyKey = normalizeKey(effectiveCompany);
+
+  const projectFilterOptions = useMemo(() => {
+    const known = KNOWN_PROJECT_FILTERS[companyKey] || [];
+    const options = [{ value: 'all', label: 'All Online Leads' }, ...known];
+    leads.forEach((lead) => {
+      const pKey = projectKey(lead);
+      if (pKey && pKey !== 'other' && !options.some((opt) => opt.value === pKey)) {
+        const rawLabel = lead.projectName || lead.customerCompany || pKey;
+        options.push({ value: pKey, label: rawLabel });
+      }
+    });
+    return options;
+  }, [companyKey, leads]);
+
   const [projectFilter, setProjectFilter] = useState(() => {
     const project = searchParams.get('project') || 'all';
     return PROJECT_FILTERS.some((item) => item.value === project) ? project : 'all';
+    return project;
   });
   const [selectedAssignees, setSelectedAssignees] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<{ text: string; kind?: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (projectFilter !== 'all' && !projectFilterOptions.some((opt) => opt.value === projectFilter)) {
+      setProjectFilter('all');
+      setSearchParams({});
+    }
+  }, [projectFilter, projectFilterOptions, setSearchParams]);
 
   const assignableUsers = useMemo(
     () => users.filter((item: User) =>
@@ -74,6 +109,15 @@ export function OnlineLeadsPage() {
     signaturevillas: leads.filter((lead) => projectKey(lead) === 'signaturevillas').length,
     'visionary-city': leads.filter((lead) => projectKey(lead) === 'visionary-city').length,
   }), [leads]);
+  const projectCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: leads.length };
+    leads.forEach((lead) => {
+      const key = projectKey(lead);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [leads]);
+
   const filteredLeads = useMemo(
     () => projectFilter === 'all' ? leads : leads.filter((lead) => projectKey(lead) === projectFilter),
     [leads, projectFilter]
@@ -157,6 +201,15 @@ export function OnlineLeadsPage() {
           </div>
           {isSuperAdmin && (
             <select className="form-input page-filter" value={effectiveCompany || ''} onChange={(event) => setCompany(event.target.value)}>
+            <select
+              className="form-input page-filter"
+              value={effectiveCompany || ''}
+              onChange={(event) => {
+                setCompany(event.target.value);
+                setProjectFilter('all');
+                setSearchParams({});
+              }}
+            >
               {(companies || []).filter((item) => item.name !== 'Platform').map((item) => (
                 <option key={item.id} value={item.name}>{item.name}</option>
               ))}
@@ -167,6 +220,9 @@ export function OnlineLeadsPage() {
         {normalizeKey(effectiveCompany) === INDHU_COMPANY_KEY && (
           <div className="online-lead-project-filter" aria-label="Filter Indhu Infra online leads by project">
             {PROJECT_FILTERS.map((item) => (
+        {projectFilterOptions.length > 1 && (
+          <div className="online-lead-project-filter" aria-label={`Filter ${effectiveCompany} online leads by project`}>
+            {projectFilterOptions.map((item) => (
               <button
                 key={item.value}
                 type="button"
@@ -175,6 +231,7 @@ export function OnlineLeadsPage() {
               >
                 <span>{item.label}</span>
                 <strong>{projectCounts[item.value as keyof typeof projectCounts] || 0}</strong>
+                <strong>{projectCounts[item.value] || 0}</strong>
               </button>
             ))}
           </div>
@@ -223,6 +280,12 @@ export function OnlineLeadsPage() {
                         <div className="online-lead-title">{lead.customerName || lead.customerPhone || lead.customerEmail || 'Website visitor'}</div>
                         <div className="online-lead-sub">
                           {[lead.customerPhone, lead.customerEmail, lead.projectName || lead.customerCompany, lead.department].filter(Boolean).join(' · ')}
+                          {[
+                            lead.customerPhone,
+                            lead.customerEmail,
+                            lead.projectName || lead.customerCompany,
+                            lead.remarks?.includes('Meta Ads') ? 'Meta Ads' : lead.department,
+                          ].filter(Boolean).join(' · ')}
                         </div>
                       </div>
                       <div className="online-lead-meta">

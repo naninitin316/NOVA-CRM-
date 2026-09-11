@@ -38,6 +38,17 @@ export class OnlineLeadService {
     const matchedCompany = companies.find((item) => this.normalizeCompanyKey(item.name) === companyKey);
     if (!matchedCompany) throw new AppError('Company not registered.', 400);
     return matchedCompany.name;
+    if (matchedCompany) return matchedCompany.name;
+
+    // Auto-create company (e.g. Komu Infra) if not yet in database
+    const canonicalName = companyKey === 'komuinfra' ? 'Komu Infra' : trimmed;
+    const created = await prisma.company.create({
+      data: {
+        name: canonicalName,
+        isActive: true,
+      },
+    });
+    return created.name;
   }
 
   async createOnlineLead(data: {
@@ -48,6 +59,7 @@ export class OnlineLeadService {
     project?: string;
     message?: string;
     source?: string;
+    createdAt?: string | Date;
   }) {
     const company = await this.resolveCompanyName(data.company);
 
@@ -102,6 +114,7 @@ export class OnlineLeadService {
         status: TaskStatus.ON_HOLD,
         priority: Priority.MEDIUM,
         remarks: source ? `Created from website lead form. Source: ${source}.` : 'Created from website lead form.',
+        ...(data.createdAt ? { createdAt: new Date(data.createdAt) } : {}),
       },
       include: {
         assignee: { select: { id: true, name: true, email: true, department: true } },

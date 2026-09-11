@@ -133,6 +133,26 @@ export const onlineLeadCreateValidation = [
   body('source').optional({ checkFalsy: true }).isString(),
 ];
 
+export const externalLeadCreateValidation = [
+  body('company').optional().isString().trim(),
+  body('name').optional().isString().trim(),
+  body('phone').optional().isString().trim(),
+  body('email').optional({ checkFalsy: true }).isEmail().withMessage('Valid email is required'),
+  body('project').optional().isString().trim(),
+  body('message').optional().isString().trim(),
+  body('source').optional().isString().trim(),
+  body('created_at').optional().isISO8601().withMessage('created_at must be an ISO 8601 timestamp'),
+  body().custom((value) => {
+    const hasName = typeof value?.name === 'string' && value.name.trim().length > 0;
+    const hasPhone = typeof value?.phone === 'string' && value.phone.trim().length > 0;
+    const hasEmail = typeof value?.email === 'string' && value.email.trim().length > 0;
+    if (!hasName && !hasPhone && !hasEmail) {
+      throw new Error('At least one of name, phone, or email is required.');
+    }
+    return true;
+  }),
+];
+
 export const onlineLeadAssignValidation = [
   body('assignedTo').isUUID().withMessage('Select a valid contributor'),
 ];

@@ -8,6 +8,8 @@ import supportRoutes from './support.routes';
 import onlineLeadRoutes from './online-lead.routes';
 import mailRoutes from './mail.routes';
 import reminderRoutes from './reminder.routes';
+import leadRoutes from './lead.routes';
+import webhookRoutes from './webhook.routes';
 
 const router = Router();
 
@@ -18,6 +20,8 @@ router.use('/companies', companyRoutes);
 router.use('/progress', progressRoutes);
 router.use('/support', supportRoutes);
 router.use('/online-leads', onlineLeadRoutes);
+router.use('/leads', leadRoutes);
+router.use('/webhooks', webhookRoutes);
 router.use('/mail', mailRoutes);
 router.use('/reminders', reminderRoutes);
 
