@@ -306,7 +306,7 @@ export const useOnlineLeadNotifications = (company?: string, enabled = true, use
     queryFn: async () => {
       const { data } = await onlineLeadApi.getLeads(company);
       const seenIds = readSeenOnlineLeadIds(userId, company);
-      return (data.data || []).filter((lead) => !lead.assignedTo && !seenIds.has(lead.id));
+      return (data.data || []).filter((lead) => !seenIds.has(lead.id));
     },
     enabled,
     refetchInterval: 10000,
