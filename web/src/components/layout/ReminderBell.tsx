@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle2, Clock3, MousePointerClick } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { useDismissReminder, useOnlineLeadNotifications, useReminders } from '@/hooks/useApi';
+import { markOnlineLeadsSeen } from '@/utils/onlineLeadSeen';
 import type { RootState } from '@/store';
 import type { Task, TaskReminder } from '@/types';
 
@@ -64,8 +65,21 @@ export function ReminderBell() {
 
   const openOnlineLeads = (lead?: Task) => {
     setOpen(false);
+    if (lead) {
+      markOnlineLeadsSeen([lead], user?.id, user?.company);
+    }
     const project = lead ? onlineLeadProject(lead).filter : 'all';
     navigate(project === 'all' ? '/online-leads' : `/online-leads?project=${project}`);
+  };
+
+  const dismissOnlineLead = (lead: Task, e: React.MouseEvent) => {
+    e.stopPropagation();
+    markOnlineLeadsSeen([lead], user?.id, user?.company);
+  };
+
+  const clearAllOnlineLeads = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    markOnlineLeadsSeen(onlineLeads, user?.id, user?.company);
   };
 
   return (
@@ -85,7 +99,27 @@ export function ReminderBell() {
         <div className="reminder-menu">
           <div className="reminder-menu-head">
             <strong>Notifications</strong>
-            <span>{notificationCount} new</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>{notificationCount} new</span>
+              {onlineLeads.length > 0 && (
+                <button
+                  type="button"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary, #3b82f6)',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '2px 4px',
+                    textDecoration: 'underline',
+                  }}
+                  onClick={clearAllOnlineLeads}
+                >
+                  Clear leads
+                </button>
+              )}
+            </div>
           </div>
           <div className="reminder-list">
             {onlineLeads.map((lead) => (
@@ -97,6 +131,15 @@ export function ReminderBell() {
                     <span>Online lead · {onlineLeadProject(lead).label}</span>
                     <small>{formatReminderTime(lead.createdAt)}</small>
                   </div>
+                </button>
+                <button
+                  type="button"
+                  className="reminder-dismiss"
+                  aria-label="Mark as read"
+                  title="Mark as read"
+                  onClick={(e) => dismissOnlineLead(lead, e)}
+                >
+                  <CheckCircle2 size={16} />
                 </button>
               </div>
             ))}
