@@ -92,7 +92,62 @@ export class OnlineLeadService {
         (customerEmail && lead.customerEmail?.toLowerCase() === customerEmail.toLowerCase()) ||
         (normalizedPhone && this.normalizePhone(lead.customerPhone) === normalizedPhone)
       ));
-      if (duplicate) return duplicate;
+      if (duplicate) {
+        // If existing lead is unassigned and we have a sales assignee, assign it
+        if (!duplicate.assignedTo) {
+          const autoAssignee = await prisma.user.findFirst({
+            where: {
+              company: { equals: company, mode: 'insensitive' },
+              isActive: true,
+              OR: [
+                { name: { contains: 'chandan', mode: 'insensitive' } },
+                { department: { equals: 'Sales', mode: 'insensitive' } },
+                { role: { in: [Role.SALES_TEAM, Role.MEMBER, Role.CONTRIBUTOR] } },
+              ],
+            },
+            select: { id: true, name: true, department: true },
+          });
+
+          if (autoAssignee) {
+            return prisma.task.update({
+              where: { id: duplicate.id },
+              data: {
+                assignedTo: autoAssignee.id,
+                department: autoAssignee.department || duplicate.department || 'Sales',
+                remarks: duplicate.remarks
+                  ? `${duplicate.remarks}\nAuto-assigned to ${autoAssignee.name}.`
+                  : `Auto-assigned to ${autoAssignee.name}.`,
+              },
+              include: {
+                assignee: { select: { id: true, name: true, email: true, department: true } },
+              },
+            });
+          }
+        }
+        return duplicate;
+      }
+    }
+
+    // Auto-assign: find active sales member for this company (e.g. Chandana G in Komu Infra)
+    let assignedTo: string | undefined;
+    let department = 'Sales';
+
+    const autoAssignee = await prisma.user.findFirst({
+      where: {
+        company: { equals: company, mode: 'insensitive' },
+        isActive: true,
+        OR: [
+          { name: { contains: 'chandan', mode: 'insensitive' } },
+          { department: { equals: 'Sales', mode: 'insensitive' } },
+          { role: { in: [Role.SALES_TEAM, Role.MEMBER, Role.CONTRIBUTOR] } },
+        ],
+      },
+      select: { id: true, name: true, department: true },
+    });
+
+    if (autoAssignee) {
+      assignedTo = autoAssignee.id;
+      if (autoAssignee.department) department = autoAssignee.department;
     }
 
     const label = customerName || customerPhone || customerEmail || 'Website visitor';
@@ -108,10 +163,13 @@ export class OnlineLeadService {
         projectName: project,
         customerSource: ONLINE_LEAD_SOURCE,
         company,
-        department: 'Sales',
+        department,
+        assignedTo,
         status: TaskStatus.ON_HOLD,
         priority: Priority.MEDIUM,
-        remarks: source ? `Created from website lead form. Source: ${source}.` : 'Created from website lead form.',
+        remarks: source
+          ? (autoAssignee ? `Created from lead form. Source: ${source}. Auto-assigned to ${autoAssignee.name}.` : `Created from website lead form. Source: ${source}.`)
+          : (autoAssignee ? `Created from website lead form. Auto-assigned to ${autoAssignee.name}.` : 'Created from website lead form.'),
         ...(data.createdAt ? { createdAt: new Date(data.createdAt) } : {}),
       },
       include: {
@@ -131,6 +189,7 @@ export class OnlineLeadService {
     return prisma.task.findMany({
       where: {
         customerSource: ONLINE_LEAD_SOURCE,
+        ...(company ? { company } : {}),
         ...(company ? { company: { equals: company, mode: 'insensitive' as const } } : {}),
       },
       orderBy: { createdAt: 'desc' },
