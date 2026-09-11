@@ -236,6 +236,39 @@ export class MetaLeadService {
 
     return importedLeads;
   }
+
+  private syncTimer: NodeJS.Timeout | null = null;
+
+  /**
+   * Continuous background lead synchronization worker.
+   * Runs periodically to ensure zero leads are ever missed even if a webhook drops.
+   */
+  startBackgroundSync(intervalMs = 10 * 60 * 1000) {
+    if (this.syncTimer) return;
+
+    const runSync = async () => {
+      const token = process.env.META_PAGE_ACCESS_TOKEN;
+      if (!token) return;
+
+      try {
+        const formId = process.env.META_FORM_ID || '1693236231771414';
+        const synced = await this.syncFormLeads(formId, token);
+        if (synced && synced.length > 0) {
+          console.log(`[Meta Lead Auto-Sync] Automatically synced/verified ${synced.length} lead(s) for Komu Infra.`);
+        }
+      } catch (err: any) {
+        console.warn('[Meta Lead Auto-Sync] Background sync check:', err.message || err);
+      }
+    };
+
+    // Run first sync 15 seconds after server start, then every intervalMs (e.g. 10 mins)
+    setTimeout(() => {
+      void runSync();
+      this.syncTimer = setInterval(() => void runSync(), intervalMs);
+    }, 15000);
+
+    console.log(`[Meta Lead Auto-Sync] Background polling worker initialized (runs every ${intervalMs / 60000} minutes).`);
+  }
 }
 
 export const metaLeadService = new MetaLeadService();

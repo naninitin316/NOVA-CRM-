@@ -10,12 +10,6 @@ import type { RootState } from '@/store';
 import type { Task, User } from '@/types';
 import { markOnlineLeadsSeen } from '@/utils/onlineLeadSeen';
 
-const INDHU_COMPANY_KEY = 'indhuinfra';
-const PROJECT_FILTERS = [
-  { value: 'all', label: 'All Online Leads' },
-  { value: 'signaturevillas', label: 'Signature Villas' },
-  { value: 'visionary-city', label: 'Visionary City' },
-];
 const KNOWN_PROJECT_FILTERS: Record<string, Array<{ value: string; label: string }>> = {
   indhuinfra: [
     { value: 'signaturevillas', label: 'Signature Villas' },
@@ -59,7 +53,6 @@ export function OnlineLeadsPage() {
   const canUseOnlineLeads = isSuperAdmin || user?.role === 'ADMIN';
   const { data: companies } = useCompanies();
   const [company, setCompany] = useState(user?.company || '');
-  const defaultCompany = companies?.find((item) => normalizeKey(item.name) === INDHU_COMPANY_KEY)?.name || companies?.find((item) => item.name !== 'Platform')?.name;
   const defaultCompany = companies?.find((item) => normalizeKey(item.name) === 'komuinfra')?.name || companies?.find((item) => normalizeKey(item.name) === 'indhuinfra')?.name || companies?.find((item) => item.name !== 'Platform')?.name;
   const effectiveCompany = isSuperAdmin ? company || defaultCompany : user?.company;
   const { data: leads = [], isLoading } = useOnlineLeads(effectiveCompany);
@@ -82,7 +75,6 @@ export function OnlineLeadsPage() {
 
   const [projectFilter, setProjectFilter] = useState(() => {
     const project = searchParams.get('project') || 'all';
-    return PROJECT_FILTERS.some((item) => item.value === project) ? project : 'all';
     return project;
   });
   const [selectedAssignees, setSelectedAssignees] = useState<Record<string, string>>({});
@@ -104,11 +96,6 @@ export function OnlineLeadsPage() {
     [effectiveCompany, users]
   );
 
-  const projectCounts = useMemo(() => ({
-    all: leads.length,
-    signaturevillas: leads.filter((lead) => projectKey(lead) === 'signaturevillas').length,
-    'visionary-city': leads.filter((lead) => projectKey(lead) === 'visionary-city').length,
-  }), [leads]);
   const projectCounts = useMemo(() => {
     const counts: Record<string, number> = { all: leads.length };
     leads.forEach((lead) => {
@@ -200,7 +187,6 @@ export function OnlineLeadsPage() {
             <p className="page-desc">Website submissions arrive here as lead tasks. Assign them to team members for follow-up.</p>
           </div>
           {isSuperAdmin && (
-            <select className="form-input page-filter" value={effectiveCompany || ''} onChange={(event) => setCompany(event.target.value)}>
             <select
               className="form-input page-filter"
               value={effectiveCompany || ''}
@@ -217,9 +203,6 @@ export function OnlineLeadsPage() {
           )}
         </div>
 
-        {normalizeKey(effectiveCompany) === INDHU_COMPANY_KEY && (
-          <div className="online-lead-project-filter" aria-label="Filter Indhu Infra online leads by project">
-            {PROJECT_FILTERS.map((item) => (
         {projectFilterOptions.length > 1 && (
           <div className="online-lead-project-filter" aria-label={`Filter ${effectiveCompany} online leads by project`}>
             {projectFilterOptions.map((item) => (
@@ -230,7 +213,6 @@ export function OnlineLeadsPage() {
                 onClick={() => selectProjectFilter(item.value)}
               >
                 <span>{item.label}</span>
-                <strong>{projectCounts[item.value as keyof typeof projectCounts] || 0}</strong>
                 <strong>{projectCounts[item.value] || 0}</strong>
               </button>
             ))}

@@ -5,6 +5,7 @@ import type { CorsOptions } from 'cors';
 import { config } from './config';
 import routes from './routes';
 import { errorHandler } from './utils/errorHandler';
+import { metaLeadService } from './services/meta-lead.service';
 
 const app = express();
 
@@ -45,6 +46,10 @@ app.use(errorHandler);
 app.listen(config.port, () => {
   console.log(`🚀 CRM API server running on http://localhost:${config.port}`);
   console.log(`📊 Environment: ${config.nodeEnv}`);
+
+  // Start automatic Meta Lead background sync
+  metaLeadService.startBackgroundSync();
 });
 
 export default app;
+
