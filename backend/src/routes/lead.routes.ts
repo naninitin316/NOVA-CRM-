@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
 import { externalLeadCreateValidation, validate } from '../middleware/validation';
-import { createLead, getLeadApiInfo } from '../controllers/lead.controller';
+import { createLead, deleteLead, getLeadApiInfo } from '../controllers/lead.controller';
 
 const router = Router();
 
@@ -10,5 +10,6 @@ router.use(apiKeyAuth);
 
 router.get('/', getLeadApiInfo);
 router.post('/', externalLeadCreateValidation, validate, createLead);
+router.delete('/:id', deleteLead);
 
 export default router;

@@ -40,3 +40,15 @@ export const getLeadApiInfo = asyncHandler(async (_req: Request, res: Response) 
     usage: 'Send a POST request with Authorization: Bearer <API_KEY> header and lead JSON body.',
   });
 });
+
+export const deleteLead = asyncHandler(async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const prisma = (await import('../config/database')).default;
+  await prisma.task.delete({
+    where: { id },
+  });
+  res.json({
+    success: true,
+    message: `Lead ${id} deleted successfully.`,
+  });
+});

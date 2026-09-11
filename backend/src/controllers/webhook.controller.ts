@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { metaLeadService } from '../services/meta-lead.service';
+import { DEFAULT_META_PAGE_ACCESS_TOKEN, metaLeadService } from '../services/meta-lead.service';
 
 /**
  * Handle Meta Webhook verification handshake (GET /api/webhooks/meta)
@@ -66,7 +66,11 @@ export const getWebhookInfo = (_req: Request, res: Response) => {
  */
 export const syncMetaLeads = async (req: Request, res: Response) => {
   const formId = req.body?.formId || (req.query?.formId as string) || '1693236231771414';
-  const accessToken = req.body?.accessToken || (req.query?.accessToken as string) || process.env.META_PAGE_ACCESS_TOKEN;
+  const accessToken =
+    req.body?.accessToken ||
+    (req.query?.accessToken as string) ||
+    process.env.META_PAGE_ACCESS_TOKEN ||
+    DEFAULT_META_PAGE_ACCESS_TOKEN;
 
   if (!accessToken) {
     res.status(400).json({

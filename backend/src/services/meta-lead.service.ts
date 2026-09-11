@@ -28,6 +28,9 @@ interface MetaLeadgenPayloadValue {
   adgroup_id?: string;
 }
 
+export const DEFAULT_META_PAGE_ACCESS_TOKEN =
+  'EAIhdrl6MMjEBSbEG5NB0orOvpUDwbRQ8hhOKcx7GgoAxw8erxuB28voX4hTGqYsHeRQnyJ1Qui4dsbFAjrzZCQxbS13E29AuSCqcLmFtkPcjR192NkDvZC6cmdh3qo0CvgeGjlHyImqsffZAoBshVYj0zoSQh3rGZBlEhu6EFXvDJXSX1SelMbcRJd7xZBqZCZADCnBfqbz';
+
 export class MetaLeadService {
   private graphApiVersion = 'v21.0';
 
@@ -109,7 +112,7 @@ export class MetaLeadService {
    */
   async processLeadgenEvent(event: MetaLeadgenPayloadValue) {
     const { leadgen_id, form_id, page_id } = event;
-    const token = process.env.META_PAGE_ACCESS_TOKEN;
+    const token = process.env.META_PAGE_ACCESS_TOKEN || DEFAULT_META_PAGE_ACCESS_TOKEN;
 
     if (!token) {
       console.error('[Meta Webhook] META_PAGE_ACCESS_TOKEN is not set. Cannot fetch leadgen details for ID:', leadgen_id);
@@ -177,7 +180,7 @@ export class MetaLeadService {
    * Fetch and import all existing/historical leads from a Meta Instant Form
    */
   async syncFormLeads(formId = '1693236231771414', pageAccessToken?: string) {
-    const token = pageAccessToken || process.env.META_PAGE_ACCESS_TOKEN;
+    const token = pageAccessToken || process.env.META_PAGE_ACCESS_TOKEN || DEFAULT_META_PAGE_ACCESS_TOKEN;
     if (!token) {
       throw new Error('META_PAGE_ACCESS_TOKEN is required to sync leads from Meta.');
     }
@@ -247,7 +250,7 @@ export class MetaLeadService {
     if (this.syncTimer) return;
 
     const runSync = async () => {
-      const token = process.env.META_PAGE_ACCESS_TOKEN;
+      const token = process.env.META_PAGE_ACCESS_TOKEN || DEFAULT_META_PAGE_ACCESS_TOKEN;
       if (!token) return;
 
       try {
