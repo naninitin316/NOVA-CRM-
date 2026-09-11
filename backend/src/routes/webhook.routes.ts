@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { getWebhookInfo, receiveMetaWebhook, verifyMetaWebhook } from '../controllers/webhook.controller';
 import { getWebhookInfo, receiveMetaWebhook, syncMetaLeads, verifyMetaWebhook } from '../controllers/webhook.controller';
 
 const router = Router();

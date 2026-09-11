@@ -36,8 +36,6 @@ export class OnlineLeadService {
     const companyKey = this.normalizeCompanyKey(trimmed);
     const companies = await prisma.company.findMany({ select: { name: true } });
     const matchedCompany = companies.find((item) => this.normalizeCompanyKey(item.name) === companyKey);
-    if (!matchedCompany) throw new AppError('Company not registered.', 400);
-    return matchedCompany.name;
     if (matchedCompany) return matchedCompany.name;
 
     // Auto-create company (e.g. Komu Infra) if not yet in database
@@ -133,7 +131,7 @@ export class OnlineLeadService {
     return prisma.task.findMany({
       where: {
         customerSource: ONLINE_LEAD_SOURCE,
-        ...(company ? { company } : {}),
+        ...(company ? { company: { equals: company, mode: 'insensitive' as const } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: {
