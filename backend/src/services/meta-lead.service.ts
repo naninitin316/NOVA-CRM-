@@ -29,7 +29,7 @@ interface MetaLeadgenPayloadValue {
 }
 
 export const DEFAULT_META_PAGE_ACCESS_TOKEN =
-  'EAIhdrl6MMjEBSbEG5NB0orOvpUDwbRQ8hhOKcx7GgoAxw8erxuB28voX4hTGqYsHeRQnyJ1Qui4dsbFAjrzZCQxbS13E29AuSCqcLmFtkPcjR192NkDvZC6cmdh3qo0CvgeGjlHyImqsffZAoBshVYj0zoSQh3rGZBlEhu6EFXvDJXSX1SelMbcRJd7xZBqZCZADCnBfqbz';
+  'EAIhdrl6MMjEBScpqr0m5AxAhn3TlRcRKEmGXkZBSaj34tYoqKOBxrG8xPyk3UrL6g8lxAurgMEs7O7MlNMofRM3yAVOG4vsH9EyowedbylGN6LGXK5l9MZAePUNzLwQkwKcRY0XXz05RDYGelUoGmVa1XSYHpYSFJwZA1Vnjyz5jy7cy4NCOtzLw95eEuIfO01t30X6';
 
 export class MetaLeadService {
   private graphApiVersion = 'v21.0';
